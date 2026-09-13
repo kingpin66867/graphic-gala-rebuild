@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: graphic-gala
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm test
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: APP_ORIGIN
+        sync: false
+      - key: DATA_DIR
+        value: /var/data/graphic-gala
+    disk:
+      name: gala-data
+      mountPath: /var/data
+      sizeGB: 1

@@ -1,0 +1,7 @@
+node_modules/
+.env
+data/
+backups/
+*.sqlite*
+test-results/
+.DS_Store
