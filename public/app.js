@@ -4,7 +4,7 @@ let session = {}, projects = [], team = [], current = null, receipt = null, sear
 const e = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const paths = { grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', folder:'M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z', plus:'M12 5v14 M5 12h14', search:'M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0', arrow:'M5 12h14 M13 6l6 6-6 6', back:'M19 12H5 M11 6l-6 6 6 6', clock:'M12 8v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0', check:'M5 12l4 4L19 6', revision:'M3 10a9 9 0 0 1 16-5l2 2 M21 2v5h-5 M21 14a9 9 0 0 1-16 5l-2-2 M3 22v-5h5', users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-4', logout:'M9 21H3V3h6 M10 12h11 M16 7l5 5-5 5', file:'M14 2H4v20h16V8z M14 2v6h6 M8 13h8 M8 17h5', lock:'M5 10h14v11H5z M8 10V6a4 4 0 0 1 8 0v4', upload:'M12 16V3 M7 8l5-5 5 5 M3 16v5h18v-5', download:'M12 3v13 M7 11l5 5 5-5 M3 17v4h18v-4', settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2' };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] || paths.folder}"/></svg>`;
-const brand = () => `<a class="brand" href="#${session.user ? 'overview' : 'home'}"><img class="brand-mark" src="/favicon.svg" alt=""><span>the graphic gala<small>Design request studio</small></span></a>`;
+const brand = () => `<a class="brand" href="#${session.user ? 'overview' : 'home'}"><img class="brand-mark" src="/Logo.png" alt=""><span>The Graphic Gala<small>Bring Your Ideas to Life Through Design & Customisation</small></span></a>`;
 const initials = name => e((name || 'Unassigned').split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase());
 const cls = status => ({'In Progress':'progress','Review':'review','Revision Requested':'revision','Approved':'approved','Completed':'completed'}[status] || 'new');
 const badge = status => `<span class="badge ${cls(status)}">${e(status)}</span>`;
@@ -28,7 +28,32 @@ function shell(content,route) {
   return `<div class="layout"><aside class="sidebar">${brand()}<div class="side-label">Workspace</div><nav aria-label="Main navigation">${links.map(([hash,ic,label])=>`<a class="nav-link ${route===hash || (hash==='projects'&&route==='project')?'active':''}" href="#${hash}">${icon(ic)}${label}${hash==='revisions'&&projects.some(p=>p.pending_revisions)?`<span class="count">${projects.reduce((a,p)=>a+p.pending_revisions,0)}</span>`:''}</a>`).join('')}</nav><div class="side-label">Customer experience</div><nav aria-label="Customer tools"><a class="nav-link" href="#request">${icon('plus')} Capture a request</a></nav><div class="sidebar-bottom"><div class="studio-note"><strong>A little clarity. More creativity.</strong>Every brief, revision, and approval, all in one place.</div><div class="user-row"><span class="avatar">${initials(session.user.name)}</span><div><div class="user-name">${e(session.user.name)}</div><small>${e(session.user.role)} workspace</small></div><button class="icon-btn" data-action="logout" aria-label="Sign out">${icon('logout')}</button></div></div></aside><div class="workspace"><header class="topbar"><span>Workspace <span class="muted"> / </span> ${e(route==='project'?'Project details':links.find(l=>l[0]===route)?.[2] || 'New request')}</span><div class="topbar-right">${session.demo?'<span class="demo-tag">DEMO DATA</span>':''}<span class="live">Studio workspace</span><span>${date(new Date().toISOString())}</span></div></header><main class="content" id="main" tabindex="-1">${content}${footer}</main></div></div>`;
 }
 function homePage() {
-  return `<section class="landing"><div><div class="eyebrow">YOUR IDEAS, BEAUTIFULLY BROUGHT TO LIFE</div><h1>Great design starts<br>with <em>your story.</em></h1><p>Tell us what you’re imagining. We’ll keep your brief, design updates, and feedback together, from first idea to final approval.</p><div class="actions"><a class="btn" href="#request">Start a design request ${icon('arrow')}</a><a class="btn secondary" href="#track">Track my project</a></div></div><div class="art" aria-label="Illustrative studio poster"><div class="art-poster"><small>THE GRAPHIC GALA</small><strong>good things<br>take shape.</strong><span class="asterisk">✳</span><small>MADE WITH INTENTION</small></div><div class="art-tag">A little idea. A lot of possibility.</div></div></section><div class="section-heading"><h2>What can we create for you?</h2><span class="muted"><small>Thoughtful design, from start to finish.</small></span></div><section class="services">${[['Packaging','✳','Make the outside as special as what’s inside.'],['Logo Design','Gg','A memorable identity for your next chapter.'],['Digital graphics','◈','Scroll-stopping visuals for your digital world.'],['Print collateral','▤','Bring your message to life, in print.']].map(([s,mark,description])=>`<a class="service" href="#request/${encodeURIComponent(s)}"><div class="service-symbol" aria-hidden="true">${mark}</div><h3>${s}</h3><p>${description}</p><span>Start a brief ↗</span></a>`).join('')}</section><section class="how"><div><span class="step-num">01 / THE BRIEF</span><strong>Share your idea</strong><p>Choose a service and tell us what you need.</p></div><div><span class="step-num">02 / THE PROCESS</span><strong>Stay in the loop</strong><p>Track progress and request revisions in your private project.</p></div><div><span class="step-num">03 / THE FINISH</span><strong>Give it your approval</strong><p>Review the latest design before we complete your project.</p></div></section>`;
+  return `<section class="landing"><div><div class="eyebrow">YOUR IDEAS, BEAUTIFULLY BROUGHT TO LIFE</div><h1>Great design starts<br>with <em>your story.</em></h1><p>Tell us what you’re imagining. We’ll keep your brief, design updates, and feedback together, from first idea to final approval.</p><div class="actions"><a class="btn" href="#request">Start a design request ${icon('arrow')}</a><a class="btn secondary" href="#track">Track my project</a></div></div>
+
+  <div class="art hero-art">
+  <img src="/Homepage-Graphic.png" alt="The Graphic Gala customisation and design services">
+</div>
+</div></div>
+</section><div class="section-heading"><h2>What can we create for you?</h2><span class="muted"><small>Thoughtful design, from start to finish.</small></span></div>
+<section class="services">${
+  [
+    ['Packaging','/Packaging.png','Make the outside as special as what’s inside.'],
+    ['Branding','/Branding.png','A memorable identity for your next chapter.'],
+    ['Digital graphics','/digital.png','Scroll-stopping visuals for your digital world.'],
+    ['Print collateral','/prints.png','Bring your message to life, in print.']
+  ].map(([s,mark,description]) => `
+    <a class="service" href="#request/${encodeURIComponent(s)}">
+      <div class="service-image">
+        <img src="${mark}" alt="${s}">
+      </div>
+      <h3>${s}</h3>
+      <p>${description}</p>
+      <span>Start a brief ↗</span>
+    </a>
+  `).join('')
+}</section>
+
+<section class="how"><div><span class="step-num">01 / THE BRIEF</span><strong>Share your idea</strong><p>Choose a service and tell us what you need.</p></div><div><span class="step-num">02 / THE PROCESS</span><strong>Stay in the loop</strong><p>Track progress and request revisions in your private project.</p></div><div><span class="step-num">03 / THE FINISH</span><strong>Give it your approval</strong><p>Review the latest design before we complete your project.</p></div></section>`;
 }
 function requestPage(service) {
   if (receipt?.id) return `<div class="narrow">${heading('Your idea is in good hands.','Your request has been saved. Keep these details to return to your project.')}<div class="success"><strong>Request submitted · ${e(receipt.reference)}</strong><p>Your private access code is shown below. It is not sent by email.</p><div class="receipt-code">${e(receipt.code)}</div><p>Save your receipt now. Anyone with the reference and code can access this project.</p></div><div class="actions"><button class="btn" data-action="receipt">${icon('download')} Save request receipt</button><a class="btn secondary" href="#${session.user?'project/'+receipt.id:'track'}">Open project ${icon('arrow')}</a><button class="btn ghost" data-action="another">Submit another request</button></div></div>`;
