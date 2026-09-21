@@ -1,68 +1,2069 @@
+
+// 1. APPLICATION STATE & DOM REFERENCES 
 const app = document.querySelector('#app');
 const modal = document.querySelector('#modal');
-let session = {}, projects = [], team = [], current = null, receipt = null, search = '', filter = 'All', renderId = 0;
-const e = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let session = {};
+let projects = []; 
+let team = [];
+let current = null;
+let receipt = null;
+let search = '';
+let filter = 'All';
+let renderId = 0;
+
+// Escapes user-provided text before displaying it in HTML.
+const e = value => 
+  String(value ?? '').replace(
+    /[&<>"']/g, 
+    c => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[c])
+);
+
+// 2. ICONS & UI HELPERS
+
 const paths = { grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', folder:'M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z', plus:'M12 5v14 M5 12h14', search:'M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0', arrow:'M5 12h14 M13 6l6 6-6 6', back:'M19 12H5 M11 6l-6 6 6 6', clock:'M12 8v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0', check:'M5 12l4 4L19 6', revision:'M3 10a9 9 0 0 1 16-5l2 2 M21 2v5h-5 M21 14a9 9 0 0 1-16 5l-2-2 M3 22v-5h5', users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-4', logout:'M9 21H3V3h6 M10 12h11 M16 7l5 5-5 5', file:'M14 2H4v20h16V8z M14 2v6h6 M8 13h8 M8 17h5', lock:'M5 10h14v11H5z M8 10V6a4 4 0 0 1 8 0v4', upload:'M12 16V3 M7 8l5-5 5 5 M3 16v5h18v-5', download:'M12 3v13 M7 11l5 5 5-5 M3 17v4h18v-4', settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2' };
-const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] || paths.folder}"/></svg>`;
-const brand = () => `<a class="brand" href="#${session.user ? 'overview' : 'home'}"><img class="brand-mark" src="/favicon.svg" alt=""><span>the graphic gala<small>Design request studio</small></span></a>`;
-const initials = name => e((name || 'Unassigned').split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase());
-const cls = status => ({'In Progress':'progress','Review':'review','Revision Requested':'revision','Approved':'approved','Completed':'completed'}[status] || 'new');
-const badge = status => `<span class="badge ${cls(status)}">${e(status)}</span>`;
-const date = value => value ? new Date(value.length === 10 ? value+'T12:00:00' : value).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : 'Not set';
-const time = value => new Date(value).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-const field = (label,name,opts={}) => `<label class="field ${opts.wide?'wide':''}"><span>${e(label)}${opts.required===false?' <small class="no-margin">Optional</small>':' <span aria-hidden="true">*</span>'}</span>${opts.area ? `<textarea name="${name}" ${opts.required===false?'':'required'} maxlength="${opts.max || 10000}" placeholder="${e(opts.placeholder || '')}">${e(opts.value || '')}</textarea>` : `<input name="${name}" type="${opts.type || 'text'}" value="${e(opts.value || '')}" ${opts.required===false?'':'required'} ${opts.type==='password'?'minlength="12" maxlength="256" autocomplete="new-password"':`maxlength="${opts.max || 200}"`} ${opts.accept?`accept="${opts.accept}"`:''} placeholder="${e(opts.placeholder || '')}">`}${opts.help?`<small>${e(opts.help)}</small>`:''}</label>`;
-const fileField = (label='Design file',required=true) => field(label,'file',{type:'file',required,accept:'.png,.jpg,.jpeg,.webp,.pdf',help:'PNG, JPG, WebP, or PDF. Maximum 5 MB.'});
-const errorBox = () => '<div class="error" role="alert"></div>';
+
+const icon = name => 
+  `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+   <path d="${paths[name] || paths.folder}"/>
+   </svg>`;
+
+   //GRAPHIC GALA LOGO AND NAME
+const brand = () => 
+  `<a 
+    class="brand" 
+    href="#${session.user ? 'overview' : 'home'}">
+
+  <img 
+    class="brand-mark" 
+    src="/Logo.png" 
+    alt="">
+
+  <span>The Graphic Gala
+    <small>Bring Your Ideas to Life Through Design & Customisation</small>
+  </span>
+</a>`;
+
+// Creates initials used in staff/user avatar circles.
+const initials = name =>
+   e(
+    (name || 'Unassigned')
+      .split(' ')
+      .slice(0,2)
+      .map(x=>x[0])
+      .join('')
+      .toUpperCase()
+    );
+
+    // Converts a project status into the CSS class used for its badge.
+
+const cls = status => ({
+  'In Progress':'progress',
+  'Review':'review',
+  'Revision Requested':'revision',
+  'Approved':'approved',
+  'Completed':'completed'
+}[status] || 'new');
+
+// Creates the coloured status badge shown throughout the application.
+const badge = status =>
+   `<span class="badge ${cls(status)}">
+  ${e(status)}
+  </span>`;
+
+  //DATE FORMAT
+const date = value =>
+   value
+    ? new Date(
+      value.length === 10 
+      ? value+'T12:00:00'
+      : value
+    ).toLocaleDateString('en-GB',{
+      day:'numeric',
+      month:'short',
+      year:'numeric'
+    }) 
+    : 'Not set';
+
+    //TIME FORMAT
+const time = value => 
+  new Date(value).toLocaleString('en-GB',{
+    day:'numeric',
+    month:'short',
+    hour:'2-digit',
+    minute:'2-digit'
+  });
+
+  //FIELDS CREATION AND CHECKPOINT EG. REQUIRED, OPTIONAL ETC
+const field = (label,name,opts={}) =>
+   `<label class="field ${opts.wide?'wide':''}">
+
+  <span>
+    ${e(label)}
+    ${opts.required===false
+    ?' <small class="no-margin">Optional</small>'
+    :' <span aria-hidden="true">*</span>'
+  }
+  </span>
+  
+  ${
+    opts.area
+     ? 
+     `<textarea 
+     name="${name}" 
+     ${opts.required===false?'':'required'} 
+     maxlength="${opts.max || 10000}"
+     placeholder="${e(opts.placeholder || '')}"
+     >${e(opts.value || '')}</textarea>`
+      : `
+      <input name="${name}" 
+      type="${opts.type || 'text'}" 
+      value="${e(opts.value || '')}" 
+      ${opts.required===false?'':'required'} 
+      
+      ${
+        opts.type==='password'
+        ?'minlength="12" maxlength="256" autocomplete="new-password"'
+        :`maxlength="${opts.max || 200}"`
+      }
+       ${opts.accept?`accept="${opts.accept}"`:''}
+        placeholder="${e(opts.placeholder || '')}"
+        >`
+      }
+      ${
+        opts.help
+        ?`<small>${e(opts.help)}</small>
+        `:''
+      }
+      </label>`;
+
+      //FILE UPLOAD
+const fileField = (
+    label='Design file',
+    required=true
+  ) => 
+    field(label,'file',{
+      type:'file',
+      required,
+      accept:'.png,.jpg,.jpeg,.webp,.pdf',
+      help:'PNG, JPG, WebP, or PDF. Maximum 5 MB.'
+    });
+
+    //ERROR LOG
+const errorBox = () => 
+  '<div class="error" role="alert"></div>';
+
+//3. API AND NOTIFICATIONS
+// SENDS REQUEST FROM THE FRONTEND TO THE APP API
+
 async function api(path, body, method='POST') {
-  const response = await fetch('/api'+path, { method:body===undefined?'GET':method, headers:body===undefined?{}:{'Content-Type':'application/json','X-Gala-Request':'1',...(session.csrf?{'X-CSRF-Token':session.csrf}:{})}, ...(body===undefined?{}:{body:JSON.stringify(body)}) });
+  const response = await fetch('/api'+path, { 
+    method:body===undefined?'GET':method,
+    headers:
+    body===undefined
+    ?{}
+    :{
+      'Content-Type':'application/json',
+      'X-Gala-Request':'1',
+      ...(session.csrf
+        ?{'X-CSRF-Token':session.csrf}
+        :{})
+      }, 
+      
+      ...(body===undefined
+        ?{}
+        :{
+          body:JSON.stringify(body)
+        }) 
+      });
+
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Could not complete the request.');
+  if (!response.ok)
+     throw new Error(data.error || 'Could not complete the request.');
   return data;
 }
-function toast(message) { const el=document.querySelector('#toast'); el.textContent=message; clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.textContent='',5500); }
-function heading(title,subtitle,action='',eyebrow='THE GRAPHIC GALA') { return `<div class="page-heading"><div><div class="eyebrow">${eyebrow}</div><h1>${e(title)}</h1><p class="sub">${e(subtitle)}</p></div>${action}</div>`; }
-function shell(content,route) {
-  const footer = '<div class="footer-note"><span>Made for a more connected creative process.</span><span>The Graphic Gala © '+new Date().getFullYear()+'</span></div>';
-  if (!session.user) return `<header class="public-header">${brand()}<nav class="public-nav" aria-label="Main navigation"><a class="${route==='home'?'active':''}" href="#home">Our studio</a><a class="${route==='request'?'active':''}" href="#request">New request</a><a class="${route==='track'?'active':''}" href="#track">Track project</a><a class="btn secondary small" href="#login">${icon('lock')} Staff sign in</a>${session.projectId?'<button class="icon-btn" data-action="logout" aria-label="Sign out of project">'+icon('logout')+'</button>':''}</nav></header><main class="public-main" id="main" tabindex="-1">${session.demo?'<div class="notice">Demo workspace · All sample projects and accounts are fictional. Use this version to explore and test.</div>':''}${content}${footer}</main>`;
-  const links=[['overview','grid','Overview'],['projects','folder','Project queue'],['revisions','revision','Revisions'],...(session.user.role==='owner'?[['team','users','Team']]:[]),['settings','settings','Account']];
-  return `<div class="layout"><aside class="sidebar">${brand()}<div class="side-label">Workspace</div><nav aria-label="Main navigation">${links.map(([hash,ic,label])=>`<a class="nav-link ${route===hash || (hash==='projects'&&route==='project')?'active':''}" href="#${hash}">${icon(ic)}${label}${hash==='revisions'&&projects.some(p=>p.pending_revisions)?`<span class="count">${projects.reduce((a,p)=>a+p.pending_revisions,0)}</span>`:''}</a>`).join('')}</nav><div class="side-label">Customer experience</div><nav aria-label="Customer tools"><a class="nav-link" href="#request">${icon('plus')} Capture a request</a></nav><div class="sidebar-bottom"><div class="studio-note"><strong>A little clarity. More creativity.</strong>Every brief, revision, and approval, all in one place.</div><div class="user-row"><span class="avatar">${initials(session.user.name)}</span><div><div class="user-name">${e(session.user.name)}</div><small>${e(session.user.role)} workspace</small></div><button class="icon-btn" data-action="logout" aria-label="Sign out">${icon('logout')}</button></div></div></aside><div class="workspace"><header class="topbar"><span>Workspace <span class="muted"> / </span> ${e(route==='project'?'Project details':links.find(l=>l[0]===route)?.[2] || 'New request')}</span><div class="topbar-right">${session.demo?'<span class="demo-tag">DEMO DATA</span>':''}<span class="live">Studio workspace</span><span>${date(new Date().toISOString())}</span></div></header><main class="content" id="main" tabindex="-1">${content}${footer}</main></div></div>`;
+function toast(message) { 
+  const el=document.querySelector('#toast'); 
+  el.textContent=message; 
+  clearTimeout(toast.timer);
+   toast.timer=setTimeout(()=>
+    el.textContent='',5500); }
+
+   //4. PAGE LAYOUT AND NAVIGATION
+function heading(
+  title,
+  subtitle,
+  action='',
+  eyebrow='THE GRAPHIC GALA'
+) { 
+  return `
+  <div class="page-heading">
+   <div>
+   <div class="eyebrow">
+   ${eyebrow}
+   </div>
+   <h1>${e(title)}</h1>
+   <p class="sub">
+   ${e(subtitle)}
+   </p>
+   </div>
+   ${action}
+   </div>
+   `; 
+  }
+function shell(content, route) {
+
+  // Footer displayed at the bottom of the application.
+  const footer = `
+    <div class="footer-note">
+      <span>
+        Made for a more connected creative process.
+      </span>
+
+      <span>
+        The Graphic Gala © ${new Date().getFullYear()}
+      </span>
+    </div>
+  `;
+
+      //customer layout
+
+ if (!session.user) {
+  return `
+    <header class="public-header">
+
+      ${brand()}
+
+      <nav
+        class="public-nav"
+        aria-label="Main navigation"
+      >
+
+        <a
+          class="${route === 'home' ? 'active' : ''}"
+          href="#home"
+        >
+          Our studio
+        </a>
+
+        <a
+          class="${route === 'request' ? 'active' : ''}"
+          href="#request"
+        >
+          New request
+        </a>
+
+        <a
+          class="${route === 'track' ? 'active' : ''}"
+          href="#track"
+        >
+          Track project
+        </a>
+
+        <a
+          class="btn secondary small"
+          href="#login"
+        >
+          ${icon('lock')} Staff sign in
+        </a>
+
+        ${
+          session.projectId
+            ? `
+              <button
+                class="icon-btn"
+                data-action="logout"
+                aria-label="Sign out of project"
+              >
+                ${icon('logout')}
+              </button>
+            `
+            : ''
+        }
+
+      </nav>
+    </header>
+
+    <main
+      class="public-main"
+      id="main"
+      tabindex="-1"
+    >
+
+      ${
+        session.demo
+          ? `
+            <div class="notice">
+              Demo workspace · All sample projects and accounts are fictional.
+              Use this version to explore and test.
+            </div>
+          `
+          : ''
+      }
+
+      ${content}
+
+      ${footer}
+
+    </main>
+  `;
 }
+//STAFF NAVIGATION - ROLE BASE
+  const links=[
+    ['overview','grid','Overview'],
+    ['projects','folder','Project queue'],
+    ['revisions','revision','Revisions'],
+
+    ...(session.user.role==='owner'
+      ?[['team','users','Team']]
+      :[]
+    ),
+    ['settings','settings','Account']
+  ];
+  //STAFF SCREEN LAYOUT - SHOWN AFTER SIGNING IN
+
+  return `
+  <div class="layout">
+  
+
+  <aside class="sidebar">
+  
+  ${brand()}
+  
+  <div class="side-label">
+  Workspace
+  </div>
+  
+  <nav aria-label="Main navigation">
+  
+  ${links.map(([hash,ic,label])=>`
+    
+    <a 
+    class="nav-link ${
+      route===hash || (hash==='projects'&&route==='project')
+      ?'active'
+      :''
+    }" 
+    href="#${hash}"
+    >
+    ${icon(ic)}
+    ${label}
+    ${
+      hash==='revisions'&&
+      projects.some(p=>p.pending_revisions)
+      ?`
+      
+      <span class="count">
+      ${
+        projects.reduce(
+          (a,p)=>a+p.pending_revisions,0)
+        }
+        </span>`:''}
+        </a>`).join('')}
+        
+        </nav>
+        
+        <div class="side-label">
+        Customer experience
+        </div>
+        
+        <nav aria-label="Customer tools">
+        <a 
+        class="nav-link" 
+        href="#request"
+        >
+        ${icon('plus')} 
+        Capture a request
+        </a>
+        </nav>
+        
+        <div class="sidebar-bottom">
+        
+        <div class="studio-note">
+        <strong>A little clarity. More creativity.</strong>
+        Every brief, revision, and approval, 
+        all in one place.</div>
+      
+        <div class="user-row">
+        <span class="avatar">
+        ${initials(session.user.name)}
+        </span>
+
+        <div>
+          <div class="user-name">
+          ${e(session.user.name)}
+          </div>
+
+          <small>
+          ${e(session.user.role)} workspace
+          </small>
+        </div>
+
+        <button 
+          class="icon-btn" 
+          data-action="logout" 
+          aria-label="Sign out"
+        >
+          ${icon('logout')}
+        </button>
+        </div>
+        </div>
+        </aside>
+        
+        <div class="workspace">
+
+        <header class="topbar">
+          <span>
+            Workspace 
+        <span class="muted"> / </span>
+        
+        ${e(
+          route==='project'
+          ?'Project details'
+          :links.find(l=>l[0]===route)?.[2] || 
+          'New request'
+        )
+      }
+      </span>
+      
+      <div class="topbar-right">
+      ${
+        session.demo
+        ?'<span class="demo-tag">DEMO DATA</span>'
+        :''
+      }
+        <span class="live">
+          Studio workspace
+        </span>
+
+        <span>
+          ${date(new Date().toISOString())}
+        </span>
+        </div>
+        </header>
+        
+        <main 
+          class="content" 
+          id="main" 
+          tabindex="-1"
+          >
+          
+          ${content}
+          ${footer}
+          </main>
+          </div>
+          </div>`;
+}
+
+//homepage- just above was the different parts of the staff screen
+// public facing pages - home,request,login, project tracking
+
 function homePage() {
-  return `<section class="landing"><div><div class="eyebrow">YOUR IDEAS, BEAUTIFULLY BROUGHT TO LIFE</div><h1>Great design starts<br>with <em>your story.</em></h1><p>Tell us what you’re imagining. We’ll keep your brief, design updates, and feedback together, from first idea to final approval.</p><div class="actions"><a class="btn" href="#request">Start a design request ${icon('arrow')}</a><a class="btn secondary" href="#track">Track my project</a></div></div><div class="art" aria-label="Illustrative studio poster"><div class="art-poster"><small>THE GRAPHIC GALA</small><strong>good things<br>take shape.</strong><span class="asterisk">✳</span><small>MADE WITH INTENTION</small></div><div class="art-tag">A little idea. A lot of possibility.</div></div></section><div class="section-heading"><h2>What can we create for you?</h2><span class="muted"><small>Thoughtful design, from start to finish.</small></span></div><section class="services">${[['Packaging','✳','Make the outside as special as what’s inside.'],['Logo Design','Gg','A memorable identity for your next chapter.'],['Digital graphics','◈','Scroll-stopping visuals for your digital world.'],['Print collateral','▤','Bring your message to life, in print.']].map(([s,mark,description])=>`<a class="service" href="#request/${encodeURIComponent(s)}"><div class="service-symbol" aria-hidden="true">${mark}</div><h3>${s}</h3><p>${description}</p><span>Start a brief ↗</span></a>`).join('')}</section><section class="how"><div><span class="step-num">01 / THE BRIEF</span><strong>Share your idea</strong><p>Choose a service and tell us what you need.</p></div><div><span class="step-num">02 / THE PROCESS</span><strong>Stay in the loop</strong><p>Track progress and request revisions in your private project.</p></div><div><span class="step-num">03 / THE FINISH</span><strong>Give it your approval</strong><p>Review the latest design before we complete your project.</p></div></section>`;
+
+//services displayed on the homepage
+  return `
+  <section class="landing">
+
+  <div>
+
+    <div class="eyebrow">YOUR IDEAS, BEAUTIFULLY BROUGHT TO LIFE
+    </div>
+
+    <h1>Great design starts<br>
+    with <em>your story.</em>
+
+    </h1>
+    <p>
+      Tell us what you’re imagining. We’ll keep your brief, design updates,
+      and feedback together, from first idea to final approval.
+     </p>
+     
+     <div class="actions">
+     <a 
+      class="btn" 
+      href="#request"
+     >
+      Start a design request ${icon('arrow')}
+     </a>
+     
+     <a 
+     class="btn secondary" 
+     href="#track"
+     >
+     Track my project
+    </a>
+    </div>
+  </div>
+    
+
+  <div class="art hero-art">
+
+  <img 
+  src="/Homepage-Graphic.png" 
+  alt="The Graphic Gala customisation and design services"
+  >
+</div>
+</div>
+</div>
+</section>
+
+<div class="section-heading">
+
+  <h2>
+     What can we create for you?
+  </h2>
+  <span class="muted">
+    <small>
+     Thoughtful design, from start to finish.
+    </small>
+  </span>
+</div>
+
+<section class="services">${
+  [
+    ['Packaging','/Packaging.png','Make the outside as special as what’s inside.'],
+    ['Branding','/Branding.png','A memorable identity for your next chapter.'],
+    ['Digital graphics','/digital.png','Scroll-stopping visuals for your digital world.'],
+    ['Print collateral','/prints.png','Bring your message to life, in print.']
+  ].map(([s,mark,description]) => `
+
+      <a 
+        class="service" 
+        href="#request/${encodeURIComponent(s)}"
+        >
+          <div class="service-image">
+            <img 
+            src="${mark}" 
+            alt="${s}"
+            >
+          </div>
+
+          <h3>${s}</h3>
+
+          <p>${description}</p>
+
+          <span>
+            Start a brief ↗
+          </span>
+      </a>
+    `).join('')
+  }
+</section>
+
+    <section class="how">
+      <div>
+        <span class="step-num">
+        01 / THE BRIEF
+        </span>
+
+        <strong>
+          Share your idea
+        </strong>
+        
+        <p>
+          Choose a service and tell us what you need.
+        </p>
+      </div>
+
+    <div>
+    
+      <span class="step-num">
+        02 / THE PROCESS
+      </span>
+
+      <strong>
+        Stay in the loop
+      </strong>
+
+        <p>
+            Track progress and request revisions in your private project.
+        </p>
+    </div>
+
+        <div>
+          <span class="step-num">
+            03 / THE FINISH
+          </span>
+          <strong>
+            Give it your approval
+          </strong>
+          <p>
+          Review the latest design before we complete your project.
+          </p>
+        </div>
+      </section>`;
 }
+//REQUEST PAGE 
 function requestPage(service) {
-  if (receipt?.id) return `<div class="narrow">${heading('Your idea is in good hands.','Your request has been saved. Keep these details to return to your project.')}<div class="success"><strong>Request submitted · ${e(receipt.reference)}</strong><p>Your private access code is shown below. It is not sent by email.</p><div class="receipt-code">${e(receipt.code)}</div><p>Save your receipt now. Anyone with the reference and code can access this project.</p></div><div class="actions"><button class="btn" data-action="receipt">${icon('download')} Save request receipt</button><a class="btn secondary" href="#${session.user?'project/'+receipt.id:'track'}">Open project ${icon('arrow')}</a><button class="btn ghost" data-action="another">Submit another request</button></div></div>`;
-  return `${heading('Let’s make something great.','Share your contact details and design brief. Fields marked * are required.')}<div class="form-layout"><form id="request-form">${errorBox()}<section class="panel"><h2>Your details</h2><p class="muted">We’ll use these details to identify your project and contact you.</p>${field('Customer name','customer_name',{max:100,placeholder:'Your full name'})}<div class="form-grid">${field('Email','email',{type:'email',max:254,placeholder:'you@example.com'})}${field('Phone number','phone',{type:'tel',max:40,placeholder:'+592 600 0000',help:'Include your country code.'})}</div></section><section class="panel"><h2>The design brief</h2><p class="muted">The more you tell us, the better we can bring your idea to life.</p><label class="field"><span>Service *</span><select name="service" required><option value="">Choose a service</option>${session.services.map(s=>`<option ${s===service?'selected':''}>${e(s)}</option>`).join('')}</select></label>${field('Design requirements','requirements',{area:true,placeholder:'Tell us about the occasion, style, colours, dimensions, wording, and anything else we should know.'})}${fileField('Reference file',false)}</section><button class="btn" type="submit">Submit design request ${icon('arrow')}</button><p class="sub">You’ll receive a reference and private access code after submitting.</p></form><aside class="aside"><div class="eyebrow">A GOOD BRIEF GOES A LONG WAY</div><h3>A few helpful details</h3><ol><li>What are we designing?</li><li>Who is it for?</li><li>What text should appear?</li><li>Any colours or inspiration?</li><li>When do you need it?</li></ol><hr class="rule"><p>Your request, revisions, and approval will stay together in one private workspace.</p><a href="#track">Already have a project? Track it →</a></aside></div>`;
+  if (receipt?.id) return `
+  <div class="narrow">
+  ${heading(
+    'Your idea is in good hands.',
+    'Your request has been saved. Keep these details to return to your project.'
+  )}
+  
+  <div class="success">
+    <strong>
+      Request submitted · ${e(receipt.reference)}
+    </strong>
+    
+    <p>
+      Your private access code is shown below. 
+      It is not sent by email.
+    </p>
+    
+    <div class="receipt-code">
+      ${e(receipt.code)}
+    </div>
+    <p>
+      Save your receipt now. Anyone with the reference and code can access this project.
+    </p>
+    </div>
+    
+    <div class="actions">
+
+    <button 
+      class="btn" 
+      data-action="receipt"
+    >  
+      ${icon('download')} Save request receipt
+    </button>
+    
+    <a 
+      class="btn secondary" 
+      href="#${session.user?'project/'+receipt.id:'track'}"
+    >
+      Open project ${icon('arrow')}
+    </a>
+    
+    <button 
+      class="btn ghost" 
+      data-action="another"
+    >
+      Submit another request
+    </button>
+  </div>
+  </div>`;
+  //NEW REQUEST FORM- COLLECT CUSTOMER DETAILS AND DESIGN DETAILS
+
+  return `
+    ${heading(
+      'Let’s make something great.',
+      'Share your contact details and design brief. Fields marked * are required.'
+    )}
+    
+    <div class="form-layout">
+    
+    <form id="request-form">
+    
+    ${errorBox()}
+    
+    <section class="panel">
+      <h2>
+        Your details
+      </h2>
+      <p class="muted">
+        We’ll use these details to identify your project and contact you.
+      </p>
+    ${field(
+      'Customer name',
+      'customer_name',
+      {
+        max:100,
+        placeholder:'Your full name'
+      }
+    )}
+    
+    <div class="form-grid">
+    
+        ${field(
+          'Email',
+          'email',
+          {
+            type:'email',
+            max:254,
+            placeholder:'you@example.com'
+          }
+        )}
+        ${field(
+          'Phone number',
+          'phone',
+          {
+            type:'tel',
+            max:40,
+            placeholder:'+592 600 0000',
+            help:'Include your country code.'
+          }
+        )}
+    </div>
+  </section>
+  
+  <section 
+    class="panel">
+      <h2>
+        The design brief
+      </h2>
+      <p class="muted">
+        The more you tell us, the better we can bring your idea to life.
+      </p>
+      
+      <label class="field">
+      
+      <span>
+        Service *
+      </span>
+      
+      <select 
+        name="service" 
+        required
+      >
+       <option value="">
+         Choose a service
+       </option>
+       
+       ${
+        session.services.map(s=>`
+          <option ${s===service?'selected':''}>
+            ${e(s)}
+          </option>
+        `).join('')
+      }
+      </select>
+      </label>
+      
+      ${field(
+        'Design requirements',
+        'requirements',
+        {
+          area:true,
+          placeholder:'Tell us about the occasion, style, colours, dimensions, wording, and anything else we should know.'
+        }
+      )}
+      ${fileField(
+        'Reference file',
+        false
+      )}
+      </section>
+      
+      <button 
+        class="btn" 
+        type="submit"
+      >
+        Submit design request ${icon('arrow')}
+      </button>
+      
+      <p 
+        class="sub">
+        You’ll receive a reference and private access code after submitting.
+      </p>
+    </form>
+    
+    <aside class="aside">
+      <div class="eyebrow">
+        A GOOD BRIEF GOES A LONG WAY
+      </div>
+      
+      <h3>
+        A few helpful details
+      </h3>
+      
+      <ol>
+        <li>What are we designing?</li>
+        <li>Who is it for?</li>
+        <li>What text should appear?</li>
+        <li>Any colours or inspiration?</li>
+        <li>When do you need it?</li>
+      </ol>
+
+        <hr class="rule">
+
+        <p>
+          Your request, revisions, and approval will stay together in one private workspace.
+        </p>
+        
+        <a href="#track">
+          Already have a project? Track it →
+        </a>
+      </aside>
+    </div>
+  `;
 }
-function loginPage() { return `<div class="login"><div class="panel">${brand()}<div class="eyebrow">WELCOME BACK</div><h1 class="mt">Step into the studio.</h1><p class="sub">Sign in to manage requests and keep projects moving.</p><form id="login-form">${errorBox()}${field('Email','email',{type:'email',max:254})}<label class="field"><span>Password *</span><input type="password" name="password" required maxlength="256" autocomplete="current-password"></label><button class="btn" type="submit">Sign in ${icon('arrow')}</button></form>${session.demo?'<div class="notice mt no-margin">Demo owner: <strong>owner@graphicgala.test</strong><br>Password: <strong>GalaDemo!2026</strong><br>Assigned staff: <strong>designer@graphicgala.test</strong><br>Same demo password.</div>':''}<p class="sub">Need an account or password reset? Contact your studio owner.</p></div><p class="sub">Customer? <a href="#track">Track your project here.</a></p></div>`; }
-function trackForm() { return `<div class="narrow">${heading('Your project, at a glance.','Enter the reference and private code from your request receipt.')}<form class="panel" id="track-form">${errorBox()}${field('Project reference','reference',{max:30,placeholder:'e.g. GG1001',help:'Shown on the confirmation after you submitted your request.'})}${field('Private access code','code',{max:100,placeholder:'Paste the code from your saved receipt'})}<button class="btn">Track project ${icon('arrow')}</button><p class="sub">Lost your receipt? Contact the studio using your existing contact channel. The owner can replace your code after verifying your identity.</p></form></div>`; }
-function card(p) { return `<button class="project-card" data-project="${p.id}"><div class="card-top"><span class="ref">${e(p.reference)}</span>${badge(p.status)}</div><h3>${e(p.service)}</h3><p>${e(p.customer_name)}</p>${p.pending_revisions?`<div class="card-alert">${p.pending_revisions} revision${p.pending_revisions===1?'':'s'} to address</div>`:''}<div class="card-bottom"><small>${p.due_date?'Due '+date(p.due_date):'Added '+date(p.created_at)}</small><span class="avatar" title="${e(p.assigned_name || 'Unassigned')}">${initials(p.assigned_name)}</span></div></button>`; }
+                // LOGIN PAGE 
+function loginPage() { 
+  
+    return `
+      <div class="login">
+      
+      <div class="panel">
+      
+      ${brand()}
+      
+      <div class="eyebrow">
+        WELCOME BACK
+      </div>
+      
+      <h1 class="mt">
+        Step into the studio.
+      </h1>
+      
+      <p class="sub">
+        Sign in to manage requests and keep projects moving.
+      </p>
+      
+      <form id="login-form">
+        ${errorBox()}
+        
+        ${field(
+          'Email',
+          'email',
+          {type:'email',
+            max:254
+          }
+        )}
+        
+        <label class="field">
+
+          <span>
+            Password *
+          </span>
+          
+          <input 
+            type="password" 
+            name="password" 
+            required 
+            maxlength="256" 
+            autocomplete="current-password"
+            >
+          </label>
+          
+          <button 
+            class="btn" 
+            type="submit"
+            >
+            Sign in ${icon('arrow')}
+          </button>
+        </form>
+        
+        ${
+          session.demo
+            ? `
+            <div class="notice mt no-margin">
+
+            Demo owner: 
+            <strong>owner@graphicgala.test</strong>
+            
+            <br>
+            Password: <strong>GalaDemo!2026</strong>
+            
+            <br>
+            Assigned staff: <strong>designer@graphicgala.test</strong>
+            
+            <br>
+            Same demo password.
+            
+            </div>
+             `
+            : ''
+          }
+          
+          <p class="sub">
+            Need an account or password reset? Contact your studio owner.
+          </p>
+        </div>
+          <p class="sub">
+            Customer? 
+            <a href="#track">
+              Track your project here.
+            </a>
+          </p>
+        </div>
+         `;
+      }
+
+      // TRACKING FORM 
+
+function trackForm() { 
+  return `
+    <div class="narrow">
+    
+    ${heading(
+      'Your project, at a glance.',
+      'Enter the reference and private code from your request receipt.'
+    )}
+    
+    <form 
+      class="panel" 
+      id="track-form"
+    >
+    
+    ${errorBox()}
+    
+    ${field(
+      'Project reference',
+      'reference',
+      {
+        max:30,
+        placeholder:'e.g. GG1001',
+        help:'Shown on the confirmation after you submitted your request.'
+      }
+    )}
+    
+    ${field(
+      'Private access code',
+      'code',
+      {
+        max:100,
+        placeholder:'Paste the code from your saved receipt'
+      }
+    )}
+    <button class="btn">
+      Track project ${icon('arrow')}
+    </button>
+    
+    <p class="sub">
+      Lost your receipt? Contact the studio using your existing contact channel. 
+      The owner can replace your code after verifying your identity.
+    </p>
+    </form>
+   </div>
+ `;
+}
+
+        //PROJECT CARD - SHOWING INFO SUCH AS SERVICE, REVISIONS, STATUS ETC
+
+function card(p) { 
+
+    return `
+      <button 
+        class="project-card" 
+        data-project="${p.id}"
+      >
+      
+      <div class="card-top">
+        
+        <span class="ref">
+          ${e(p.reference)}
+       </span>${badge(p.status)}
+      </div>
+      
+      <h3>
+        ${e(p.service)}
+      </h3>
+      
+      <p>
+        ${e(p.customer_name)}
+      </p>
+      
+      ${
+        p.pending_revisions
+        ?`
+          <div class="card-alert">
+            ${p.pending_revisions}
+            revision${p.pending_revisions===1?'':'s'}
+           to address
+          </div>
+          `
+          :''
+        }
+        
+        <div class="card-bottom">
+        
+        <small>
+          ${
+            p.due_date
+            ?'Due '+date(p.due_date)
+            :'Added '+date(p.created_at)
+          }
+        </small>
+        
+        <span
+          class="avatar" 
+          title="${e(p.assigned_name || 'Unassigned')}"
+         >
+            ${initials(p.assigned_name)}
+        </span>
+      </div>
+    </button>
+  `; 
+}
+
+// STAFF DASHBOARD 
+
 function overviewPage() {
-  const count = states => projects.filter(p=>states.includes(p.status)).length;
-  const pending = projects.reduce((a,p)=>a+p.pending_revisions,0);
-  return `${heading('Studio overview','A little structure for all the good things you’re creating.','<a class="btn" href="#request">'+icon('plus')+' New request</a>','YOUR CREATIVE WORKSPACE')}<div class="hero-strip"><div><div class="eyebrow">LET’S KEEP THINGS MOVING</div><h2>${pending?`${pending} revision${pending===1?' needs':'s need'} your creative attention.`:'A clear view of your creative day.'}</h2><p>${pending?'Open the revision queue to see exactly what your customers would like changed.':'Review incoming briefs, share your latest designs, and celebrate the projects you’ve completed.'}</p></div><span class="hero-flower" aria-hidden="true">✳</span></div><section class="stats" aria-label="Project metrics">${[['Total requests',projects.length,'Every brief in your workspace','folder'],['New requests',count(['New']),'Ready for a first look','plus'],['In progress',count(['In Progress','Revision Requested']),'Ideas taking shape','clock'],['In review',count(['Review','Approved']),'Feedback & final handoff','revision'],['Completed',count(['Completed']),'Finished with care','check']].map(([label,n,help,ic])=>`<div class="stat"><div class="stat-top"><span>${label}</span>${icon(ic)}</div><div class="stat-value">${n.toString().padStart(2,'0')}</div><small>${help}</small></div>`).join('')}</section><div class="section-heading"><div><h2>The workflow board</h2><p>From first brief to final sign-off. Select a project to take the next step.</p></div><a class="btn secondary small" href="#projects">${icon('folder')} Open project queue</a></div><section class="board" aria-label="Workflow board">${[['New requests',['New'],'new'],['In progress',['In Progress','Revision Requested'],'progress'],['In review',['Review','Approved'],'review'],['Completed',['Completed'],'completed']].map(([title,states,color])=>`<div class="column"><div class="column-head"><span class="dot ${color}"></span>${title}<span class="number">${count(states)}</span></div>${projects.filter(p=>states.includes(p.status)).map(card).join('') || `<div class="empty">${icon('check')}All clear here.<br>No projects in this stage.</div>`}</div>`).join('')}</section>`;
+  //PROJECT COUNTS FOR THE VARIOUS STATUS
+
+  const count = states => 
+    projects.filter(p=>states.includes(p.status)).length;
+
+  // CALCULATE THE PENDING NUMBER OF REVISIONS
+
+  const pending = projects.reduce(
+    (a,p)=>a+p.pending_revisions,
+    0
+  );
+
+  return `
+    ${heading(
+      'Studio overview','A little structure for all the good things you’re creating.',
+      '<a class="btn" href="#request">'+
+       icon('plus')+
+       ' New request</a>',
+       'YOUR CREATIVE WORKSPACE'
+      )}
+      
+      <div class="hero-strip">
+      
+        <div>
+          <div class="eyebrow">
+            LET’S KEEP THINGS MOVING
+          </div>
+          
+          <h2>
+          ${
+            pending
+            ?`
+              ${pending} revision${
+                pending===1
+                ?' needs'
+                :'s need'
+              } your creative attention.
+              `
+              :'A clear view of your creative day.'
+            }
+            </h2>
+
+            <p>
+              ${
+                  pending
+                  ?'Open the revision queue to see exactly what your customers would like changed.'
+                  :'Review incoming briefs, share your latest designs, and celebrate the projects you’ve completed.'
+              }
+            </p>
+          </div>
+          
+          <span 
+              class="hero-flower" 
+              aria-hidden="true"
+              >
+          </span>
+        </div>
+
+      <section 
+        class="stats" 
+        aria-label="Project metrics"
+      >
+       ${
+        [
+          ['Total requests',
+            projects.length,
+            'Every brief in your workspace',
+            'folder'
+          ],
+          ['New requests',
+            count(['New']),
+            'Ready for a first look',
+            'plus'
+          ],
+          
+          ['In progress',
+            count(['In Progress','Revision Requested']),
+            'Ideas taking shape',
+            'clock'
+          ],
+          [
+            'In review',
+             count(['Review','Approved']),
+             'Feedback & final handoff',
+             'revision'
+          ],
+          [
+            'Completed',
+             count(['Completed']),
+             'Finished with care',
+             'check'
+            ]
+          ].map(([label,n,help,ic])=>`
+          
+          <div class="stat">
+            
+            <div class="stat-top">
+            
+            <span>
+              ${label}
+            </span>
+            
+            ${icon(ic)}
+            
+          </div>
+            
+            <div class="stat-value">
+              ${n.toString().padStart(2,'0')}
+            </div>
+            
+            <small>
+              ${help}
+            </small>
+            
+            </div>
+            `).join('')
+          }
+          </section>
+          
+          <div class="section-heading">
+          
+            <div>
+              <h2>
+                The workflow board
+              </h2>
+              
+              <p>
+                From first brief to final sign-off.
+                 Select a project to take the next step.
+              </p>
+
+            </div>
+            
+            <a 
+              class="btn secondary small" 
+              href="#projects"
+            >
+              ${icon('folder')}Open project queue
+            </a>
+            
+            </div>
+            
+            <section 
+              class="board" 
+              aria-label="Workflow board"
+            >
+            
+            ${
+              [
+                [
+                  'New requests',
+                  ['New'],
+                  'new'
+                ],
+                
+                [
+                  'In progress',
+                  ['In Progress','Revision Requested'],
+                  'progress'
+                ],
+                ['In review',
+                  ['Review','Approved'],
+                  'review'
+                ],
+                
+                [
+                  'Completed',
+                  ['Completed'],
+                  'completed'
+                ] 
+              ].map(([title,states,color])=>`
+              
+                <div class="column">
+                
+                <div class="column-head">
+                  <span class="dot ${color}"></span>
+                  
+                  ${title}
+                  
+                    <span class="number">
+                      ${count(states)}
+                    </span>
+                    
+                  </div>
+                  
+                  ${
+                    projects
+                    .filter(p=>states.includes(p.status))
+                    .map(card)
+                    .join('') 
+                    || 
+                    
+                    `<div class="empty">
+                    
+                      ${icon('check')}
+                      All clear here.
+                        <br>
+                        No projects in this stage.
+                    </div>
+                  `}
+              </div>
+           `).join('')}
+  </section>`;
 }
-function visibleProjects() { return projects.filter(p=>(filter==='All' || p.status===filter) && [p.reference,p.customer_name,p.service,p.assigned_name].join(' ').toLowerCase().includes(search.toLowerCase())); }
-function projectTable() { const rows=visibleProjects(); return rows.length?`<div class="table-wrap"><table><thead><tr><th>Reference</th><th>Customer / Service</th><th>Status</th><th>Assigned to</th><th>Due date</th><th>Updated</th></tr></thead><tbody>${rows.map(p=>`<tr><td><button class="project-link" data-project="${p.id}">${e(p.reference)}</button></td><td>${e(p.customer_name)}<span class="muted">${e(p.service)}</span></td><td>${badge(p.status)}${p.pending_revisions?'<span class="muted">'+p.pending_revisions+' open revision(s)</span>':''}</td><td>${e(p.assigned_name||'Unassigned')}</td><td>${date(p.due_date)}</td><td>${date(p.updated_at)}</td></tr>`).join('')}</tbody></table></div><p class="sub">${rows.length} project${rows.length===1?'':'s'} shown</p>`:`<div class="empty">${icon('search')}No matching projects.<br>Try another name or reference, or clear the filters.<div class="mt"><button class="btn secondary small" data-action="clear-filters">Clear filters</button></div></div>`; }
-function projectsPage() { return `${heading('Project queue','Every detail, every stage, all in one place.','<a class="btn" href="#request">'+icon('plus')+' New request</a>')}<div class="toolbar"><div class="search">${icon('search')}<input id="project-search" class="search-input" type="search" aria-label="Search projects" value="${e(search)}" placeholder="Search by reference, customer, or service"></div><button class="btn secondary small" data-action="refresh">${icon('revision')} Refresh</button></div><div class="filters mb" role="group" aria-label="Filter by status">${['All',...session.statuses].map(s=>`<button class="filter ${filter===s?'active':''}" data-filter="${s}">${s}</button>`).join('')}</div><div id="project-results">${projectTable()}</div>`; }
-function revisionsPage() { const rows=projects.filter(p=>p.pending_revisions); return `${heading('Room for a little refinement.','Customer feedback that needs your attention. Uploading a new draft addresses the open revisions.')}<div class="revision-list">${rows.map(p=>`<div class="panel"><div class="section-heading no-margin"><div class="inline-meta"><span class="section-tag">${p.pending_revisions} open</span><div><h3>${e(p.customer_name)} · ${e(p.service)}</h3><p>${e(p.reference)} · ${date(p.updated_at)}</p></div></div><button class="btn secondary small" data-project="${p.id}">Review changes ${icon('arrow')}</button></div></div>`).join('') || '<div class="empty">'+icon('check')+'You’re all caught up. No outstanding revisions.</div>'}</div>`; }
+      // PROJECT SEARCH AND FILTER
+function visibleProjects() { 
+  return projects.filter(p=>
+    (
+      filter==='All' || 
+      p.status===filter
+    ) 
+    
+    && 
+    [
+      p.reference,
+      p.customer_name,
+      p.service,
+      p.assigned_name
+    ]
+    .join(' ')
+    .toLowerCase()
+    .includes(search.toLowerCase())
+  ); 
+}
+
+      // PROJECT TABLE - RESULTS FROM THE SEARCH AND FILTER
+
+function projectTable() { 
+
+  const rows=visibleProjects(); 
+  
+  return rows.length
+    ?`
+      <div class="table-wrap">
+      
+      <table>
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th>Customer / Service</th>
+          <th>Status</th>
+          <th>Assigned to</th>
+          <th>Due date</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+
+     <tbody>
+     
+      ${
+        rows.map(p=>`
+          <tr>
+            <td>
+              <button 
+                class="project-link" 
+                data-project="${p.id}"
+              >
+                ${e(p.reference)}
+              </button>
+            </td>
+              
+            <td>
+            
+              ${e(p.customer_name)}
+              
+              <span class="muted">
+                ${e(p.service)}
+              </span>
+              </td>
+              <td>
+                ${badge(p.status)}
+              ${
+                p.pending_revisions
+                  ?`
+                <span class="muted">
+                  ${p.pending_revisions} open revision(s)
+                </span>
+             `
+          :''
+        }
+    </td>
+         <td>
+            ${e(p.assigned_name||'Unassigned')}
+          </td>
+          
+          <td>
+            ${date(p.due_date)}
+          </td>
+
+          <td>
+            ${date(p.updated_at)}
+          </td>
+        </tr>
+        `).join('')
+      }
+      </tbody>
+      </table>
+      </div>
+        <p class="sub">
+          ${rows.length} 
+          project${rows.length===1?'':'s'} shown
+        </p>`
+        :`
+        <div class="empty">
+          ${icon('search')}
+          No matching projects.
+          <br>
+          Try another name or reference, or clear the filters.
+          
+          <div class="mt">
+            
+            <button 
+            class="btn secondary small" 
+            data-action="clear-filters"
+            >
+              Clear filters
+            </button>
+        </div>
+    </div>
+            `;
+ }
+        //PROJECT QUEUE PAGE
+
+function projectsPage() { 
+
+  return `
+    ${heading(
+      'Project queue',
+      'Every detail, every stage, all in one place.',
+      '<a class="btn" href="#request">'+icon('plus')+
+      ' New request</a>'
+    )}
+    
+    <div class="toolbar">
+      <div class="search">
+       
+      ${icon('search')}
+      
+      <input 
+       id="project-search" 
+       class="search-input" 
+       type="search" 
+       aria-label="Search projects" 
+       value="${e(search)}" 
+       placeholder="Search by reference, customer, or service"
+       >
+       </div>
+       
+       <button 
+        class="btn secondary small" 
+        data-action="refresh"
+        >
+          ${icon('revision')} Refresh
+        </button>
+        </div>
+        
+        <div 
+          class="filters mb" 
+          role="group" 
+          aria-label="Filter by status"
+        >
+        ${['All',...session.statuses].map(s=>`
+          
+          <button 
+            class="filter ${filter===s?'active':''}" 
+            data-filter="${s}"
+          >
+            ${s}
+          </button>
+          
+          `).join('')
+        }
+        </div>
+        <div id="project-results">
+        ${projectTable()}
+        </div>
+        `; 
+  
+    }
+
+          //REVISION PAGE
+function revisionsPage() { 
+
+  // Find projects that currently have pending revisions.
+   const rows=projects.filter(
+    p=>p.pending_revisions
+  ); 
+  
+  return `
+  ${heading(
+    'Room for a little refinement.',
+    'Customer feedback that needs your attention. Uploading a new draft addresses the open revisions.'
+  )}
+  
+  <div class="revision-list">
+  ${
+    rows.map(p=>`
+      
+      <div class="panel">
+      
+      <div class="section-heading no-margin">
+      
+      <div class="inline-meta">
+      <span class="section-tag">
+        ${p.pending_revisions} open
+      </span>
+      
+      <div>
+      
+      <h3>
+       ${e(p.customer_name)} · ${e(p.service)}
+      </h3>
+      
+      <p>
+        ${e(p.reference)} · ${date(p.updated_at)}
+      </p>
+      
+      </div>
+      </div>
+      
+      <button 
+        class="btn secondary small" 
+        data-project="${p.id}"
+        >
+        Review changes ${icon('arrow')}
+        </button>
+        
+        </div>
+        </div>
+        `).join('')
+         || 
+         
+         `
+         <div class="empty">
+         ${icon('check')}
+         You’re all caught up. No outstanding revisions.
+         </div>
+         `}
+         </div>
+         `; 
+         }
+
+         //draft section - shows the latest uploaded desing draft.
+         
 function draftSection(p) {
-  const draft = p.files.find(f=>f.id===p.latest_draft_id);
-  return `<section class="panel"><div class="section-heading"><div><h2>${draft?'The latest design':'The design takes shape here'}</h2><p>${draft?'Version '+draft.version+' · Uploaded '+date(draft.created_at):'Your draft will appear here when the studio is ready to share it.'}</p></div>${draft?'<span class="section-tag">DRAFT '+draft.version+'</span>':''}</div>${draft?`${draft.mime.startsWith('image/')?`<a href="/api/files/${draft.id}" target="_blank" rel="noopener"><img class="draft-image" src="/api/files/${draft.id}" alt="Design draft version ${draft.version}: ${e(draft.name)}"></a>`:'<div class="empty">'+icon('file')+'PDF design · Download to review the complete file.</div>'}${draft.note?'<p class="prose mb">'+e(draft.note)+'</p>':''}<a class="btn secondary small" href="/api/files/${draft.id}?download">${icon('download')} Download design</a>`:'<div class="empty">'+icon('folder')+'Good things are on their way.</div>'}${!session.user&&p.status==='Review'?`<hr class="rule"><h3>Ready for your approval</h3><p class="sub">Review the latest design above. Your approval allows the studio to complete this project.</p><div class="actions mt"><button class="btn" data-action="approve">${icon('check')} Approve design</button><button class="btn secondary" data-action="revision">Request revision</button></div>`:''}${['Approved','Completed'].includes(p.status)?`<div class="success mt no-margin"><strong>${p.status==='Completed'?'Project completed. Thank you for creating with us!':'Design approved. Your final handoff is next.'}</strong><p>Approval recorded ${date(p.approvals[0]?.created_at)}. The design and its history remain available here.</p></div>`:''}</section>`;
+  const draft = p.files.find(f => f.id === p.latest_draft_id);
+
+  return `
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <h2>${draft ? 'The latest design' : 'The design takes shape here'}</h2>
+          <p>${draft ? 'Version ' + draft.version + ' · Uploaded ' + date(draft.created_at) : 'Your draft will appear here when the studio is ready to share it.'}</p>
+        </div>
+        ${draft ? `<span class="section-tag">DRAFT ${draft.version}</span>` : ''}
+      </div>
+
+      ${draft ? (
+        draft.mime.startsWith('image/') ? `
+          <a href="/api/files/${draft.id}" target="_blank" rel="noopener">
+            <img class="draft-image" src="/api/files/${draft.id}" alt="Design draft version ${draft.version}: ${e(draft.name)}">
+          </a>
+        ` : `
+          <div class="empty">
+            ${icon('file')}
+            PDF design · Download to review the complete file.
+          </div>
+        `
+      ) : `
+        <div class="empty">
+          ${icon('folder')}
+          Good things are on their way.
+        </div>
+      `}
+
+      ${draft && draft.note ? `<p class="prose mb">${e(draft.note)}</p>` : ''}
+
+      ${draft ? `
+        <a class="btn secondary small" href="/api/files/${draft.id}?download">
+          ${icon('download')} Download design
+        </a>
+      ` : ''}
+
+      ${!session.user && p.status === 'Review' ? `
+        <hr class="rule">
+        <h3>Ready for your approval</h3>
+        <p class="sub">Review the latest design above. Your approval allows the studio to complete this project.</p>
+
+        <div class="actions mt">
+          <button class="btn" data-action="approve">${icon('check')} Approve design</button>
+          <button class="btn secondary" data-action="revision">Request revision</button>
+        </div>
+      ` : ''}
+
+      ${['Approved', 'Completed'].includes(p.status) ? `
+        <div class="success mt no-margin">
+          <strong>
+            ${p.status === 'Completed' ? 'Project completed. Thank you for creating with us!' : 'Design approved. Your final handoff is next.'}
+          </strong>
+          <p>
+            Approval recorded ${date(p.approvals[0]?.created_at)}.
+            The design and its history remain available here.
+          </p>
+        </div>
+      ` : ''}
+    </section>
+  `;
 }
-function history(p) { return `<section class="panel"><h2>Revision history</h2><p class="sub">A clear record of what changed, and why.</p>${p.revisions.map((r,i)=>`<details class="revision-card" ${i===0?'open':''}><summary>Revision ${p.revisions.length-i} · ${date(r.created_at)} · ${r.resolved_at?'Addressed in a later draft':'Awaiting a new draft'}</summary><p class="prose mt">${e(r.feedback)}</p><div class="compare"><div><small>Requirements before</small><p>${e(r.before_text)}</p></div><div><small>Requirements after</small><p>${e(r.after_text)}</p></div></div></details>`).join('') || '<p class="sub">No revisions requested yet.</p>'}</section><section class="panel"><h2>Project activity</h2><p class="sub mb">A timeline from first idea to final approval.</p><ol class="timeline">${p.events.map(ev=>`<li><p>${e(ev.message)}</p><small>${e(ev.actor)} · ${time(ev.created_at)}${ev.private?' · Staff only':''}</small></li>`).join('')}</ol></section>`; }
+//project revision history and activity timeline.
+function history(p) {
+   return `
+   <section class="panel">
+   
+   <h2>
+   Revision history
+   </h2>
+   <p class="sub">
+    A clear record of what changed, and why.
+    </p>
+    
+    ${
+      p.revisions.map((r,i)=>`
+      
+      <details 
+        class="revision-card" 
+        ${i===0?'open':''}
+        >
+        
+        <summary>
+        
+        Revision ${p.revisions.length-i}
+         · ${date(r.created_at)} 
+         · ${
+            r.resolved_at
+            ?'Addressed in a later draft'
+            :'Awaiting a new draft'
+          }
+            </summary>
+            <p class="prose mt">
+            ${e(r.feedback)}
+            </p>
+            <div class="compare">
+            
+            <div>
+            <small>
+            Requirements before
+            </small>
+            <p>
+              ${e(r.before_text)}
+            </p>
+          </div>
+          
+          <div>
+          <small>
+            Requirements after
+          </small>
+          <p>
+          ${e(r.after_text)}
+          
+          </p>
+          </div>
+          </div>
+          </details>
+          
+          `).join('') || 
+          `<p class="sub">
+            No revisions requested yet.
+          </p>
+          `}
+          </section>
+          
+          <section class="panel">
+          <h2>
+          Project activity
+          </h2>
+          
+          <p class="sub mb">
+            A timeline from first idea to final approval.
+            </p>
+            <ol class="timeline">
+            ${
+              p.events.map(ev=>`
+                <li>
+                <p>
+                ${e(ev.message)}
+                </p>
+                
+                <small>
+                ${e(ev.actor)}
+                 · ${time(ev.created_at)}
+                 ${
+                  ev.private
+                  ?' · Staff only'
+                  :''
+                }
+                </small>
+                </li>
+                `).join('')
+              }
+              </ol>
+              </section>
+              `; 
+            }
+            //PROJECT DETAIL PAGE - SHOWS THE DRAFT, BRIEF, HISTORY AND STAFF CONTROLS
 function controls(p) {
-  if (!session.user) return `<section class="panel"><h2>Keep the conversation clear.</h2><p class="sub mb">Need to adjust your brief or ask for a design change? Add your feedback to this project.</p>${!['Approved','Completed'].includes(p.status)?'<button class="btn secondary" data-action="revision">'+icon('revision')+' Request revision</button>':'<p class="sub">For changes after approval, contact the studio to reopen your project.</p>'}<hr class="rule"><a href="#request">Start another project →</a><button class="btn ghost mt" data-action="other-project">Track another project</button></section>`;
-  const next = {'New':'In Progress','Revision Requested':'In Progress','Approved':'Completed'}[p.status];
-  return `<section class="panel"><div class="eyebrow mb">NEXT STEP</div><h2>Move this project forward</h2><p class="sub mb">${p.status==='Completed'?'This project is complete. Its full history has been kept.':p.status==='Review'?'The latest draft is with the customer. Only they can record approval.':p.status==='Approved'?'Customer approval is recorded. You can now complete this project.':'Update progress or share a design for customer feedback.'}</p>${next?`<form id="status-form">${errorBox()}<input type="hidden" name="status" value="${next}"><button class="btn">${icon('check')} ${next==='Completed'?'Mark as completed':'Start design work'}</button></form>`:''}${['In Progress','Review','Revision Requested'].includes(p.status)?`<hr class="rule"><form id="draft-form">${errorBox()}${fileField('Upload a new draft')}${field('Note for the customer','note',{area:true,required:false,max:2000,placeholder:'What’s new in this version?'})}<button class="btn">${icon('upload')} Share draft for review</button><p class="sub">The customer can review this file immediately. Open revisions will be marked as addressed.</p></form>`:''}</section>${session.user.role==='owner'?`<section class="panel"><h2>Project planning</h2><form id="assignment-form" class="mt">${errorBox()}<label class="field"><span>Assigned designer</span><select name="assigned_to"><option value="">Unassigned</option>${team.filter(u=>u.active).map(u=>`<option value="${u.id}" ${u.id===p.assigned_to?'selected':''}>${e(u.name)} (${u.role})</option>`).join('')}</select></label>${field('Due date','due_date',{type:'date',required:false,value:p.due_date})}<button class="btn secondary">Save planning details</button></form></section>`:''}<section class="panel"><h2>Staff notes</h2><p class="sub mb">Visible only to staff with access to this project.</p><form id="note-form">${errorBox()}${field('Internal note','note',{area:true,max:5000})}<button class="btn secondary">Add note</button></form></section>${session.user.role==='owner'?`<section class="panel"><h2>Owner controls</h2><p class="sub mb">Verify the customer’s identity before replacing access. Existing customer sessions will be signed out.</p><button class="btn secondary small" data-action="reset-code">Replace customer access code</button>${['Approved','Completed'].includes(p.status)?'<hr class="rule"><button class="btn secondary small" data-action="reopen">Reopen project</button>':''}</section>`:''}`;
+
+  // CONTOMER CONTROLS - APPROVE OR REQUEST REVISION
+  if (!session.user)
+     return `
+    <section class="panel">
+    <h2>
+      Keep the conversation clear.
+    </h2>
+    <p class="sub mb">
+    Need to adjust your brief or ask for a design change? Add your feedback to this project.
+    </p>
+
+     <!-- REQUEST REVISION -->
+
+    ${
+      !['Approved','Completed'].includes(p.status)
+      ?`
+      <button 
+      class="btn secondary" 
+      data-action="revision"
+      >
+      $icon('revision')} Request revision
+      </button>
+      `:`
+      <p class="sub">
+        For changes after approval, contact the studio to reopen your project.
+      </p>`
+      }
+
+      <hr class="rule">
+
+    <!-- START ANOTHER PROJECT -->
+
+      <a href="#request">
+        Start another project →
+      </a>
+
+    <!-- TRACK ANOTHER PROJECT -->
+      <button 
+      class="btn ghost mt" 
+      data-action="other-project"
+      >
+      Track another project
+      </button>
+      </section>`;
+
+      // DETERMINE THE NEXT AVAILABLE STATUS FOR 
+
+  const next = {
+    'New':'In Progress',
+    'Revision Requested':'In Progress',
+    'Approved':'Completed'
+  }[p.status];
+
+  return `
+  <section class="panel">
+
+  <div class="eyebrow mb">
+    NEXT STEP
+  </div>
+  <h2>
+  Move this project forward
+  </h2>
+
+  <!-- STATUS MESSAGE -->
+
+  <p class="sub mb">
+  ${
+    p.status==='Completed'
+    ?'This project is complete. Its full history has been kept.'
+    :p.status==='Review'
+    ?'The latest draft is with the customer. Only they can record approval.'
+    :p.status==='Approved'?'Customer approval is recorded. You can now complete this project.'
+    :'Update progress or share a design for customer feedback.'
+  }
+  </p>
+  ${
+    next
+    ?`
+    <form id="status-form">
+    ${errorBox()}
+
+      <input 
+      type="hidden" 
+      name="status" 
+      value="${next}"
+      >
+      <button class="btn">
+      ${icon('check')} 
+      ${
+        next==='Completed'
+        ?'Mark as completed'
+        :'Start design work'
+      }
+      </button>
+      </form>
+      `:''
+    }
+            <!-- UPLOAD NEW DESIGN DRAFT -->
+    ${
+      ['In Progress','Review','Revision Requested'].includes(p.status)
+      ?`
+      <hr class="rule">
+      
+      <form id="draft-form">
+      
+      ${errorBox()}
+      
+      ${fileField(
+        'Upload a new draft'
+      )}
+      ${field(
+        'Note for the customer',
+        'note',
+        {
+          area:true,
+          required:false,
+          max:2000,
+          placeholder:'What’s new in this version?'
+        }
+      )}
+      <button class="btn">
+      ${icon('upload')} Share draft for review
+      </button>
+
+      <p class="sub">
+        The customer can review this file immediately. Open revisions will be marked as addressed.
+      </p>
+      </form>
+      `:''
+    }
+    </section>
+    
+     <!--PROJECT PLANNING AND STAFF NOTES - ONLY VISIBLE TO STAFF WITH ACCESS -->
+
+    ${
+      session.user.role==='owner'
+      ?`
+      <section class="panel">
+      <h2>
+        Project planning
+      </h2>
+      <form 
+      id="assignment-form" 
+      class="mt"
+      >
+        ${errorBox()}
+        
+        <label class="field">
+        <span>
+          Assigned designer
+        </span>
+        <select name="assigned_to">
+        <option value="">
+        Unassigned
+        </option>
+        ${
+            team.filter(u=>u.active)
+            .map(u=>
+              `<option value="${u.id}"
+               ${u.id===p.assigned_to?'selected':''}
+              >
+                ${e(u.name)} (${u.role})
+                
+              </option>
+              `).join('')}
+              </select>
+              </label>
+              
+              ${
+                field(
+                  'Due date',
+                  'due_date',
+                  {
+                    type:'date',
+                    required:false,
+                    value:p.due_date
+                  }
+                )}
+                <button class="btn secondary">
+                Save planning details
+                </button>
+                </form>
+                </section>
+                `
+                :''
+              }
+
+              <section class="panel">
+              <h2>
+               Staff notes
+              </h2>
+              <p class="sub mb">
+                Visible only to staff with access to this project.
+              </p>
+              <form id="note-form">
+              ${errorBox()}
+              
+              ${field(
+                'Internal note',
+                'note',
+                {
+                  area:true,
+                  max:5000
+                }
+              )}
+              
+              <button class="btn secondary">
+              Add note
+              </button>
+              
+              </form>
+              </section>
+
+              <!-- OWNER CONTROLS - REPLACE CUSTOMER ACCESS CODE OR REOPEN PROJECT -->
+             
+              ${session.user.role==='owner'
+                ?`
+                <section class="panel">
+                <h2>
+                  Owner controls
+                </h2>
+                <p class="sub mb">
+                  Verify the customer’s identity before replacing access. Existing customer sessions will be signed out.
+                </p>
+                
+                <!-- REPLACE CUSTOMER ACCESS CODE -->
+
+                <button 
+                  class="btn secondary small" 
+                  data-action="reset-code"
+                  >
+                  Replace customer access code
+                  </button>
+
+                  <!-- REOPEN PROJECT -->
+
+                  ${
+                    ['Approved','Completed'].includes(p.status)
+                    ?`
+                    <hr class="rule">
+                    <button 
+                    class="btn secondary small" 
+                    data-action="reopen"
+                    >
+                    Reopen project
+                    </button>
+                    `:''
+                    }
+                    </section>
+                    `:''
+                  }`;
 }
+
+//DETAIL PAGE
 function detailPage(p) {
-  const steps=['Request received','In design','Customer review','Approved','Completed'];
-  const index={'New':0,'In Progress':1,'Revision Requested':1,'Review':2,'Approved':3,'Completed':4}[p.status];
-  return `${session.user?'<a class="back" href="#projects">'+icon('back')+' Back to project queue</a>':''}${heading(session.user?p.customer_name+' · '+p.service:'Your idea is coming to life.',p.reference+' · '+p.service,`<div class="actions">${badge(p.status)}<button class="icon-btn" data-action="refresh" aria-label="Refresh project">${icon('revision')}</button></div>`,'PROJECT '+p.reference)}<div class="progress-steps" aria-label="Project progress">${steps.map((s,i)=>`<div class="progress-step ${i<=index?'done':''}">${i+1}. ${s}</div>`).join('')}</div><div class="details-grid"><div>${draftSection(p)}<section class="panel"><h2>The project brief</h2><dl class="meta-grid"><div><dt>Customer</dt><dd>${e(p.customer_name)}</dd></div><div><dt>Service</dt><dd>${e(p.service)}</dd></div><div><dt>Email</dt><dd>${e(p.email)}</dd></div><div><dt>Phone</dt><dd>${e(p.phone)}</dd></div><div><dt>Submitted</dt><dd>${date(p.created_at)}</dd></div><div><dt>Due date</dt><dd>${date(p.due_date)}</dd></div></dl><h3 class="mb">Current requirements</h3><p class="prose">${e(p.requirements)}</p>${p.original_requirements!==p.requirements?`<details class="revision-card"><summary>Original brief</summary><p class="prose mt">${e(p.original_requirements)}</p></details>`:''}${p.files.filter(f=>f.kind==='reference').map(f=>`<a class="file-row" href="/api/files/${f.id}?download">${icon('file')}${e(f.name)}<small>Reference file ↓</small></a>`).join('')}</section>${p.files.filter(f=>f.kind==='draft'&&f.id!==p.latest_draft_id).length?`<section class="panel"><h2>Previous designs</h2>${p.files.filter(f=>f.kind==='draft'&&f.id!==p.latest_draft_id).map(f=>`<a class="file-row" href="/api/files/${f.id}?download">${icon('file')}Version ${f.version} · ${e(f.name)}<small>${date(f.created_at)}</small></a>`).join('')}</section>`:''}${history(p)}</div><aside>${controls(p)}</aside></div>`;
+
+  const steps=[
+    'Request received',
+    'In design',
+    'Customer review',
+    'Approved',
+    'Completed'
+  ];
+
+  const index={
+    'New':0,
+    'In Progress':1,
+    'Revision Requested':1,
+    'Review':2,
+    'Approved':3,
+    'Completed':4
+  }[p.status];
+
+  return `
+  ${
+    session.user
+    ?`
+    <a class="back" 
+    href="#projects"
+    >
+    $icon('back')}Back to project queue
+    </a>
+    `:''
+  }
+  ${heading(
+    session.user
+    ?p.customer_name+' · '+p.service
+    :'Your idea is coming to life.'
+    ,p.reference+' · '+p.service,
+    `<div class="actions">
+    ${badge(p.status)}<button class="icon-btn" data-action="refresh" aria-label="Refresh project">${icon('revision')}</button></div>`,'PROJECT '+p.reference)}<div class="progress-steps" aria-label="Project progress">${steps.map((s,i)=>`<div class="progress-step ${i<=index?'done':''}">${i+1}. ${s}</div>`).join('')}</div><div class="details-grid"><div>${draftSection(p)}<section class="panel"><h2>The project brief</h2><dl class="meta-grid"><div><dt>Customer</dt><dd>${e(p.customer_name)}</dd></div><div><dt>Service</dt><dd>${e(p.service)}</dd></div><div><dt>Email</dt><dd>${e(p.email)}</dd></div><div><dt>Phone</dt><dd>${e(p.phone)}</dd></div><div><dt>Submitted</dt><dd>${date(p.created_at)}</dd></div><div><dt>Due date</dt><dd>${date(p.due_date)}</dd></div></dl><h3 class="mb">Current requirements</h3><p class="prose">${e(p.requirements)}</p>${p.original_requirements!==p.requirements?`<details class="revision-card"><summary>Original brief</summary><p class="prose mt">${e(p.original_requirements)}</p></details>`:''}${p.files.filter(f=>f.kind==='reference').map(f=>`<a class="file-row" href="/api/files/${f.id}?download">${icon('file')}${e(f.name)}<small>Reference file ↓</small></a>`).join('')}</section>${p.files.filter(f=>f.kind==='draft'&&f.id!==p.latest_draft_id).length?`<section class="panel"><h2>Previous designs</h2>${p.files.filter(f=>f.kind==='draft'&&f.id!==p.latest_draft_id).map(f=>`<a class="file-row" href="/api/files/${f.id}?download">${icon('file')}Version ${f.version} · ${e(f.name)}<small>${date(f.created_at)}</small></a>`).join('')}</section>`:''}${history(p)}</div><aside>${controls(p)}</aside></div>`;
 }
-function teamPage() { return `${heading('The people behind the pixels.','Owners manage all projects. Staff can access only the projects assigned to them.')}<div class="details-grid"><section class="panel"><h2>Studio team</h2>${team.map(u=>`<div class="team-row"><span class="avatar">${initials(u.name)}</span><div><p>${e(u.name)}</p><small>${e(u.email)} · ${u.role} · ${u.active?'Active':'Inactive'}</small></div>${u.id!==session.user.id?`<div class="actions"><button class="btn secondary small" data-user="${u.id}" data-active="${!u.active}">${u.active?'Deactivate':'Reactivate'}</button></div>`:''}</div>`).join('')}</section><form class="panel" id="team-form"><h2>Add a team member</h2><p class="sub mb">Share their sign-in details through your existing private channel. Ask them to change their password.</p>${errorBox()}${field('Full name','name',{max:100})}${field('Email','email',{type:'email',max:254})}${field('Temporary password','password',{type:'password',help:'At least 12 characters.'})}<label class="field"><span>Role *</span><select name="role"><option value="staff">Staff · Assigned projects only</option><option value="owner">Owner · Full workspace access</option></select></label><button class="btn">${icon('plus')} Add team member</button></form></div>`; }
-function settingsPage() { return `${heading('Your account','Keep your studio sign-in details up to date.')}<form class="panel narrow" id="password-form"><h2>Change password</h2><p class="sub mb">Other sessions will be signed out when your password changes.</p>${errorBox()}<label class="field"><span>Current password *</span><input type="password" name="current" required maxlength="256" autocomplete="current-password"></label>${field('New password','password',{type:'password',help:'Use at least 12 characters. Choose a unique password.'})}<button class="btn">Update password</button></form>`; }
+
+// TEAM MANAGEMENT PAGE - ONLY VISIBLE TO OWNERS
+function teamPage() {
+   return `
+   ${heading(
+    'The people behind the pixels.',
+    'Owners manage all projects. Staff can access only the projects assigned to them.'
+  )}
+  
+  <div class="details-grid">
+  
+  <section class="panel">
+  
+  <h2>
+    Studio team
+  </h2>
+  
+  ${
+    team.map(u=>`
+      
+      <div class="team-row">
+      
+      <span class="avatar">
+        ${initials(u.name)}
+      </span>
+      
+      <div>
+        <p>
+         ${e(u.name)}
+        </p>
+        
+        <small>
+          ${e(u.email)} 
+          · ${u.role}
+           · ${u.active?'Active':'Inactive'}
+        </small>
+      </div>
+      ${
+        u.id!==session.user.id?`
+        
+        <div class="actions">
+          <button class="btn secondary small" 
+          data-user="${u.id}"
+          data-active="${!u.active}"
+        >
+          ${u.active
+            ?'Deactivate'
+            :'Reactivate'
+         }</button>
+       </div>
+       `:''
+      }
+      </div>
+      `).join('')
+    }
+    </section>
+    
+    <form 
+      class="panel" 
+      id="team-form"
+    ><
+    h2>
+      Add a team member
+    </h2>
+    
+      <p class="sub mb">
+        Share their sign-in details through your existing private channel. Ask them to change their password.
+      </p>
+      ${errorBox()}
+      
+      ${field(
+        'Full name',
+        'name',
+        {
+          max:100
+        }
+      )}
+      
+      ${field(
+        'Email',
+        'email',
+        {
+          type:'email',
+          max:254
+        }
+      )}
+      
+      ${field(
+        'Temporary password',
+        'password',
+        {
+          type:'password',
+          help:'At least 12 characters.'
+        }
+      
+      )}
+      <label class="field">
+      <span>
+        Role *
+      </span>
+
+      <select name="role">
+        <option value="staff">
+          Staff · Assigned projects only
+        </option>
+        
+        <option value="owner">
+         Owner · Full workspace access
+        </option>
+        </select>
+        </label>
+        
+        <button class="btn">
+          ${icon('plus')} Add team member
+        </button>
+        </form>
+        </div>
+        `; 
+      }
+      // ACCOUNT SETTINGS PAGE - CHANGE PASSWORD
+
+function settingsPage() { 
+  return `
+  ${heading(
+    'Your account',
+    'Keep your studio sign-in details up to date.'
+  )}
+  
+  <form class="panel narrow" 
+  id="password-form">
+  
+  <h2>
+    Change password
+  </h2>
+  <p class="sub mb">
+    Other sessions will be signed out when your password changes.
+  </p>
+  
+  ${errorBox()}
+  
+  <label class="field">
+  
+  <span>
+    Current password *
+  </span>
+  
+  <input 
+    type="password" 
+    name="current" 
+    required 
+    maxlength="256" 
+    autocomplete="current-password"
+  >
+  
+  </label>
+  ${field(
+    'New password',
+    'password',
+    {
+      type:'password',
+      help:'Use at least 12 characters. Choose a unique password.'
+    }
+  )}
+  
+  <button class="btn">
+    Update password
+  </button>
+  </form>
+  `; 
+}
 async function render() {
   const ticket=++renderId;
   const [raw,arg] = location.hash.slice(1).split('/');
@@ -88,61 +2089,668 @@ async function render() {
   app.innerHTML=shell(content,route);
   document.title=`${route==='overview'?'Studio overview':route==='project'?current.reference:route==='track'?'Track your project':route==='request'?'New design request':'Design studio'} · Graphic Gala`;
 }
-async function safeRender(){ try{await render();}catch(error){app.innerHTML=shell(`<div class="narrow"><div class="error" role="alert">${e(error.message)}</div><button class="btn" data-action="refresh">Try again</button><a class="btn ghost" href="#home">Return to studio</a></div>`,'error');} }
-function showModal(html) { modal.innerHTML=html;modal.showModal(); }
-function receiptDownload() { const blob = new Blob([`THE GRAPHIC GALA — PRIVATE REQUEST RECEIPT\n\nReference: ${receipt.reference}\nAccess code: ${receipt.code}\nTrack project: ${location.origin}/#track\n\nKeep this receipt private. It grants access to the project, revisions and approval.\nThe access code is not sent by email. Contact the studio if you lose it.\n`],{type:'text/plain'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=receipt.reference+'-private-receipt.txt';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000); }
-async function fileData(form) {
-  const file=form.querySelector('input[type=file]')?.files[0]; if(!file)return undefined;
-  if(file.size>5*1024*1024)throw new Error('Files must be 5 MB or smaller.');
-  const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.onerror=()=>reject(new Error('Could not read this file.'));reader.readAsDataURL(file);});
-  return {name:file.name,data};
-}
-async function mutate(action,body) { const p=await api('/projects/'+current.id+'/'+action,{version:current.version,...body});return p; }
-document.addEventListener('submit',async event=>{
-  const form=event.target;if(!(form instanceof HTMLFormElement))return;event.preventDefault();
-  const submit=form.querySelector('button[type=submit],button:not([type])');if(submit?.disabled)return;
-  const data=Object.fromEntries(new FormData(form));const err=form.querySelector('.error');if(err)err.textContent='';if(submit)submit.disabled=true;
-  try {
-    if(form.id==='login-form'){await api('/login',data);location.hash='overview';}
-    else if(form.id==='request-form'){receipt=await api('/requests',{...data,file:await fileData(form)});session.csrf=receipt.csrf;await safeRender();window.scrollTo(0,0);}
-    else if(form.id==='track-form'){const result=await api('/track',data);session.csrf=result.csrf;await safeRender();}
-    else if(form.id==='status-form'){await mutate('status',data);toast(data.status==='Completed'?'Project completed. The full history has been retained.':'Design work started.');await safeRender();}
-    else if(form.id==='draft-form'){await mutate('drafts',{note:data.note,file:await fileData(form)});toast('Draft shared. It is ready for customer review.');await safeRender();}
-    else if(form.id==='assignment-form'){await mutate('assignment',{assigned_to:data.assigned_to?Number(data.assigned_to):null,due_date:data.due_date});toast('Planning details saved.');await safeRender();}
-    else if(form.id==='note-form'){await mutate('notes',data);toast('Staff note added.');await safeRender();}
-    else if(form.id==='revision-form'){await mutate('revisions',data);modal.close();toast('Revision submitted. Your feedback is with the studio.');await safeRender();}
-    else if(form.id==='approve-form'){await mutate('approve',{feedback:data.feedback,confirm:data.confirm==='on',draftId:current.latest_draft_id});modal.close();toast('Design approved. Thank you!');await safeRender();}
-    else if(form.id==='reopen-form'){await mutate('reopen',data);modal.close();toast('Project reopened. New customer approval will be required.');await safeRender();}
-    else if(form.id==='reset-form'){const result=await mutate('access-code',{});receipt=result;showModal(`<h2>New access code created</h2><p>The old code and existing customer sessions no longer work. Save this receipt and share it privately with the verified customer.</p><div class="receipt-code">${e(result.reference)}<br>${e(result.code)}</div><div class="actions"><button class="btn" data-action="receipt">Save receipt</button><button class="btn secondary" data-action="close">Done</button></div>`);await safeRender();}
-    else if(form.id==='team-form'){await api('/team',data);toast('Team member added.');await safeRender();}
-    else if(form.id==='password-form'){const r=await api('/password',data);session.csrf=r.csrf;toast('Password updated. Other sessions have been signed out.');await safeRender();}
-  }catch(error){if(err){err.textContent=error.message;err.scrollIntoView({block:'nearest'});}else toast(error.message);}
-  finally{if(submit)submit.disabled=false;}
-});
-document.addEventListener('click',async event=>{
-  if(event.target.closest('a.skip')){event.preventDefault();document.querySelector('#main')?.focus();return;}
-  const button=event.target.closest('button');if(!button)return;
-  if(button.dataset.project){location.hash='project/'+button.dataset.project;return;}
-  if(button.dataset.filter){filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter===filter));document.querySelector('#project-results').innerHTML=projectTable();return;}
-  try{
-    if(button.dataset.user){button.disabled=true;await api('/team/'+button.dataset.user,{active:button.dataset.active==='true'},'PATCH');toast('Account updated.');await safeRender();return;}
-    switch(button.dataset.action){
-      case 'logout': await api('/logout',{});receipt=null;session={};location.hash='home';await safeRender();break;
-      case 'refresh': await safeRender();break;
-      case 'receipt': receiptDownload();break;
-      case 'another':receipt=null;await safeRender();break;
-      case 'clear-filters':search='';filter='All';await safeRender();break;
-      case 'other-project':await api('/logout',{});await safeRender();break;
-      case 'close':modal.close();break;
-      case 'revision':showModal(`<h2>Request revision</h2><p>${e(current.reference)} · ${e(current.service)}<br>Be specific about what you’d like changed.</p><form id="revision-form">${errorBox()}${field('Revision details','feedback',{area:true,max:5000})}${field('Updated design requirements','requirements',{area:true,required:false,value:current.requirements})}<div class="actions"><button class="btn">Submit revision</button><button class="btn secondary" type="button" data-action="close">Cancel</button></div></form>`);break;
-      case 'approve':showModal(`<h2>Approve this design?</h2><p>You’re approving the latest draft for ${e(current.reference)}. Once approved, the studio can complete the project. Further changes will require the owner to reopen it.</p><form id="approve-form">${errorBox()}${field('Feedback for the studio','feedback',{area:true,required:false,max:2000})}<label class="check"><input name="confirm" type="checkbox" required><span>I have reviewed the latest design and approve it for completion.</span></label><div class="actions"><button class="btn">Confirm approval</button><button class="btn secondary" type="button" data-action="close">Keep reviewing</button></div></form>`);break;
-      case 'reopen':showModal(`<h2>Reopen this project</h2><p>The previous approval stays in the history. A new draft and customer approval will be needed before completion.</p><form id="reopen-form">${errorBox()}${field('Reason for reopening','reason',{area:true,max:2000})}<div class="actions"><button class="btn">Reopen project</button><button class="btn secondary" type="button" data-action="close">Cancel</button></div></form>`);break;
-      case 'reset-code':showModal(`<h2>Replace customer access?</h2><p>Only continue after verifying the customer’s identity through your existing contact channel. The current code and all customer sessions for this project will stop working.</p><form id="reset-form">${errorBox()}<label class="check"><input type="checkbox" required><span>I have verified the customer’s identity.</span></label><div class="actions"><button class="btn">Create new access code</button><button class="btn secondary" type="button" data-action="close">Cancel</button></div></form>`);break;
+//RENDER
+
+async function safeRender(){
+   try{
+    await render();
+  }
+  catch(error){
+    app.innerHTML=shell(
+      `<div class="narrow">
+      
+      <div 
+        class="error"
+       role="alert">
+       ${e(error.message)}
+      </div>
+      
+      <button
+       class="btn" 
+       data-action="refresh"
+      >
+        Try again
+      </button>
+
+      <a 
+      class="btn ghost" 
+      href="#home"
+      >
+      Return to studio
+      
+      </a>
+      </div>
+      `,
+      'error'
+    );
+  }
+ }
+
+ //SHOW MODEL-ADD CONTENT TO THE MODAL AND OPEN IT. USED FOR RECEIPT AND APPROVAL CONFIRMATION
+
+function showModal(html) { 
+  modal.innerHTML=html;
+  modal.showModal();
+ }
+
+ //RECEIPT DOWNLAOD SCREEN. 
+
+function receiptDownload() { 
+  const blob = new Blob(
+    [
+      `THE GRAPHIC GALA — PRIVATE REQUEST RECEIPT
+      \n\n
+      Reference: ${receipt.reference}
+      \nAccess code: ${receipt.code}
+      \nTrack project: ${location.origin}/#track
+      \n\n
+      Keep this receipt private. It grants access to the project, revisions and approval.\n
+      The access code is not sent by email. Contact the studio if you lose it.\n
+      `],
+      {
+        type:'text/plain'
+      }
+    );
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    
+    link.download=receipt.reference+'-private-receipt.txt';
+    
+    link.click();
+    
+    setTimeout(
+      ()=>URL.revokeObjectURL(link.href),1000); 
     }
-  }catch(error){toast(error.message);}finally{button.disabled=false;}
+    //FILEDATA FORM 
+async function fileData(form) {
+  const file=form.querySelector(
+    'input[type=file]')?.files[0];
+
+     if(!file)return undefined;
+
+  if(file.size>5*1024*1024)
+    throw new Error(
+    'Files must be 5 MB or smaller.'
+  );
+  const data=await new Promise(
+    (resolve,reject)=>{
+      const reader=new FileReader();
+      
+      reader.onload=()=>
+          resolve(
+            reader.result.split(',')[1]);
+            
+            reader.onerror=()=>
+              reject
+            (new Error(
+              'Could not read this file.'
+            )
+          );reader.readAsDataURL(file);
+        }
+      );
+  return {
+    name:file.name,
+    data
+  };
+}
+//PROJECT MUTATION - SENDS A PATCH REQUEST TO UPDATE THE PROJECT WITH THE GIVEN ACTION AND BODY DATA
+
+async function mutate(action,body) { 
+  const p=await api(
+    '/projects/'+current.id+'/'+action,
+    {
+      version:current.version,
+      ...body
+    }
+  );
+  return p; 
+}
+//FORM SUBMISSION HANDLER - SENDS FORM DATA TO THE API AND HANDLES THE RESPONSE
+
+document.addEventListener(
+  'submit',
+  async event=>{
+  const form=event.target;
+  
+  if(!(form instanceof HTMLFormElement))
+    return;
+  event.preventDefault();
+
+  const submit=form.querySelector(
+    'button[type=submit],button:not([type])'
+  );
+  if(submit?.disabled)
+    return;
+
+  const data=Object.fromEntries(
+    new FormData(form)
+  );
+  const err=form.querySelector('.error');
+  
+  if(err)err.textContent='';
+    if(submit)submit.disabled=true;
+  try {
+    if(form.id==='login-form'){
+      await api('/login',data);location.hash='overview';}
+
+    else if
+    (form.id==='request-form'){
+      receipt=await api(
+        '/requests',
+        {
+          ...data,
+          file:await fileData(form)
+        }
+      );
+      session.csrf=receipt.csrf;
+      await safeRender();
+      window.scrollTo(0,0);
+    }
+
+    else if(
+      form.id==='track-form'){
+        const result=await api(
+          '/track',
+          data
+        );
+        session.csrf=result.csrf;
+        await safeRender();
+      }
+    else if(
+      form.id==='status-form'){
+        await mutate(
+          'status',
+          data
+        );
+        toast(data.status==='Completed'?'Project completed. The full history has been retained.':'Design work started.');
+        await safeRender();
+      }
+    else if(
+      form.id==='draft-form') {
+      await mutate(
+        'drafts',
+        {note:data.note,file:await fileData(form)}
+      );
+      toast('Draft shared. It is ready for customer review.');
+      await safeRender();
+    }
+    else if(
+      form.id==='assignment-form'){
+        await mutate(
+          'assignment',
+          {assigned_to:data.assigned_to?Number(data.assigned_to):null,due_date:data.due_date}
+        );
+        toast('Planning details saved.');
+        await safeRender();
+      }
+    else if(
+      form.id==='note-form'){
+        await mutate(
+          'notes',
+          data
+        );
+        toast(
+          'Staff note added.'
+        );
+        await safeRender();}
+
+    else if(
+      form.id==='revision-form'){
+        await mutate(
+          'revisions',
+          data
+        );
+        modal.close();
+        toast('Revision submitted. Your feedback is with the studio.');
+        await safeRender();
+      }
+    else if(
+      form.id==='approve-form'){
+        await mutate(
+          'approve',
+          {feedback:data.feedback,confirm:data.confirm==='on',draftId:current.latest_draft_id}
+        );
+        modal.close();
+        toast('Design approved. Thank you!');
+        await safeRender();
+      }
+    else if(
+      form.id==='reopen-form'){
+        await mutate(
+          'reopen',
+          data
+        );
+        modal.close();
+        toast(
+          'Project reopened. New customer approval will be required.');
+          await safeRender();
+        }
+
+    else if(
+      form.id==='reset-form'){
+        const result=await mutate(
+          'access-code',
+          {}
+        );
+        receipt=result;
+        showModal(`
+          <h2>
+            New access code created
+          </h2>
+          
+          <p>
+            The old code and existing customer sessions no longer work. Save this receipt and share it privately with the verified customer.
+          </p>
+
+          <div class="receipt-code">
+            ${e(result.reference)}
+            <br>
+            ${e(result.code)}
+            </div>
+
+            <div class="actions">
+            
+            <button
+             class="btn" 
+             data-action="receipt">
+             Save receipt
+             </button>
+             
+             <button 
+             class="btn secondary" 
+             data-action="close">
+             Done
+             </button>
+             </div>
+             `);
+             await safeRender();
+            }
+    else if
+    (form.id==='team-form'){
+      await api(
+        '/team',
+        data
+      );
+      toast(
+        'Team member added.'
+      );
+      await safeRender();
+    }
+    else if(
+      form.id==='password-form'){
+        const r=await api(
+          '/password',
+          data
+        );
+        session.csrf=r.csrf;
+        toast('Password updated. Other sessions have been signed out.');
+        await safeRender();
+      }
+  }
+  catch(error){
+    
+    if(err){
+      err.textContent=error.message;
+      
+      err.scrollIntoView({
+        block:'nearest'
+      });
+    }
+    else toast(
+      error.message
+    );
+  }
+  finally{
+    if(submit)submit.disabled=false;
+  }
 });
-document.addEventListener('input',event=>{if(event.target.id==='project-search'){search=event.target.value;document.querySelector('#project-results').innerHTML=projectTable();}});
-document.addEventListener('invalid',event=>{const el=event.target;if(el.name==='phone'&&el.validity.valueMissing)el.setCustomValidity('Phone number is required.');},true);
-document.addEventListener('input',event=>{event.target.setCustomValidity?.('');});
-window.addEventListener('hashchange',async()=>{await safeRender();window.scrollTo(0,0);document.querySelector('#main')?.focus({preventScroll:true});});
+//CLICK EVENT HANDLER 
+document.addEventListener(
+  'click',
+  async event=>{
+
+  if(event.target.closest('a.skip')){
+    event.preventDefault();
+    document.querySelector('#main')?.focus();
+    return;
+  }
+
+  const button=event.target.closest('button');
+  if(!button)
+    return;
+
+  if(button.dataset.project){
+    location.hash=
+    'project/'+button.dataset.project;
+    return;
+  }
+  if(button.dataset.filter){
+    filter=button.dataset.filter;
+    document
+    .querySelectorAll('[data-filter]')
+    .forEach(b=>
+      b.classList.toggle(
+        'active'
+        ,b.dataset.filter===filter
+      )
+    );
+    
+    document.querySelector(
+      '#project-results'
+    ).innerHTML=projectTable();
+    return;
+  }
+  //ACTIVATE AND DEACTIVATE TEAM MEMBERS
+  try{
+
+    if(button.dataset.user){
+      button.disabled=true;
+      await api(
+        '/team/'+button.dataset.user,
+        {
+          active:  
+          button.dataset.active==='true'
+        },
+        'PATCH'
+      );
+      toast(
+        'Account updated.'
+      );
+      await safeRender();
+      return;
+    }
+
+    //BUTTON ACTIONS
+
+    switch(button.dataset.action){
+
+      case 'logout': 
+      await api(
+        '/logout',
+        {}
+      );
+      receipt=null;
+      session={};
+      location.hash='home';
+      await safeRender();
+      break;
+
+      case 'refresh':
+         await safeRender();
+         break;
+
+      case 'receipt': 
+        receiptDownload();
+        break;
+
+      case 'another':
+        receipt=null;
+        await safeRender();
+        break;
+
+      case 'clear-filters':
+        search='';
+        filter='All';
+        await safeRender();
+        break;
+
+      case 'other-project':
+        await api('/logout',{});
+        await safeRender();
+        break;
+
+      case 'close':
+        modal.close();
+      break;
+
+      case 'revision':
+        showModal(`
+          <h2>
+            Request revision
+          </h2>
+          <p>
+            ${e(current.reference)} · ${e(current.service)}
+            <br>
+            Be specific about what you’d like changed.
+          </p>
+          
+          <form id="revision-form">
+          
+          ${errorBox()}
+          
+          ${field(
+            'Revision details',
+            'feedback',
+            {
+              area:true,
+              max:5000
+            }
+          )}
+          
+          ${field(
+            'Updated design requirements',
+            'requirements',
+            {
+              area:true,
+              required:false,
+              value:current.requirements
+            }
+          )}
+          
+          <div class="actions">
+          
+          <button class="btn">
+          Submit revision
+          </button>
+          
+          <button 
+          class="btn secondary" 
+          type="button" 
+          data-action="close"
+          >
+          Cancel
+          </button>
+          
+          </div>
+          </form>`);
+          break;
+
+      case 'approve':
+        showModal(`
+          
+          <h2>
+            Approve this design?
+          </h2>
+          <p>
+            You’re approving the latest draft for 
+            ${e(current.reference)}. 
+            Once approved, the studio can complete the project. Further changes will require the owner to reopen it.
+          </p>
+          
+          <form id="approve-form">
+          ${errorBox()}
+
+          ${field(
+            'Feedback for the studio',
+            'feedback',
+            {
+              area:true,
+              required:false,
+              max:2000
+            }
+          )}
+          
+          <label class="check">
+          <input 
+           name="confirm"
+           type="checkbox" 
+           required
+           >
+           
+           <span>
+            I have reviewed the latest design and approve it for completion.
+          </span>
+          
+          </label>
+          
+          <div class="actions">
+
+          <button class="btn">
+            Confirm approval
+            </button>
+            
+            <button 
+              class="btn secondary" 
+              type="button" 
+              data-action="close"
+            >
+            Keep reviewing
+            </button>
+            </div>
+            </form>
+            `);
+            break;
+
+      case 'reopen':
+        showModal(`
+          <h2>
+            Reopen this project
+            </h2>
+            
+            <p>
+              The previous approval stays in the history. A new draft and customer approval will be needed before completion.
+            </p>
+            
+            <form id="reopen-form">
+            ${errorBox()}
+            ${field(
+              'Reason for reopening',
+              'reason',
+              {
+                area:true,
+                max:2000
+              }
+            )}
+            
+            <div class="actions">
+            
+            <button class="btn">
+              Reopen project
+            </button>
+            
+            <button 
+              class="btn secondary" 
+              type="button" 
+              data-action="close"
+            >
+            Cancel
+            </button>
+            </div>
+            </form>
+            `);
+            break;
+
+      case 'reset-code':
+        showModal(`
+          <h2>
+            Replace customer access?
+          </h2>
+          <p>
+           Only continue after verifying the customer’s identity through your existing contact channel. The current code and all customer sessions for this project will stop working.
+          </p>
+          
+          <form id="reset-form">
+          ${errorBox()}
+          
+          <label class="check">
+          <input 
+          type="checkbox" 
+          required
+          >
+          <span>
+            I have verified the customer’s identity.
+          </span>
+          </label>
+          
+          <div class="actions">
+          
+          <button class="btn">
+          Create new access code
+          </button>
+          <button 
+            class="btn secondary" 
+            type="button" 
+            data-action="close"
+            >
+            Cancel
+            </button>
+            </div>
+            </form>
+            `);
+            break;
+    }
+  }
+  catch(error){
+    toast(error.message
+
+    );
+  }
+  finally{
+    button.disabled=false;
+  }
+});
+
+document.addEventListener(
+  'input',
+  event=>{
+    if(event.target.id==='project-search'){
+      
+      search=event.target.value;
+      document.querySelector(
+        '#project-results'
+      ).innerHTML=projectTable();
+    }
+  }
+);
+
+document.addEventListener(
+  'invalid',
+  event=>{
+    const el=event.target;
+    
+    if(
+      el.name==='phone'&&
+      el.validity.valueMissing
+    )
+    el.setCustomValidity(
+      'Phone number is required.'
+    );
+  },
+  true
+);
+
+document.addEventListener(
+  'input',
+  event=>{
+    event.target.setCustomValidity?.('');
+  }
+);
+window.addEventListener(
+  'hashchange',
+  async()=>{
+    await safeRender();
+    
+    window.scrollTo(
+      0,
+      0
+    );
+    
+    document.querySelector(
+      '#main'
+    )?.focus({
+      preventScroll:true
+    });
+  }
+);
+
 await safeRender();

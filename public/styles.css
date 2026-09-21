@@ -1,9 +1,9 @@
 :root {
   --ink:#192e2a;
   --muted:#65766f;
-  --green:#11665a;
-  --dark:#0b433b;
-  --lime:#d9f28d;
+  --green:#42bbbc;
+  --dark:#278A8B;
+  --orange:#ff6300;
   --line:#dfe6e1;
   --bg:#f6f8f4;
   --white:#fff;
@@ -53,7 +53,7 @@ button:disabled {
 }
 
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible {
-  outline:3px solid #55a799;
+  outline:3px solid #47bbbc;
   outline-offset:3px
 }
 
@@ -118,7 +118,7 @@ small {
   display:flex;
   align-items:center;
   gap:11px;
-  color:var(--ink);
+  color:#ff6300;
   font-size:17px;
   font-weight:750;
   letter-spacing:-.5px
@@ -129,8 +129,8 @@ small {
 }
 
 .brand-mark {
-  width:36px;
-  height:36px;
+  width:100px;
+  height:100px;
   flex:none
 }
 
@@ -157,7 +157,8 @@ small {
   flex-direction:column;
   position:sticky;
   top:0;
-  height:100vh
+  height:100vh;
+  overflow-y: auto;
 }
 
 .side-label {
@@ -329,7 +330,7 @@ small {
   font-size:12px;
   text-decoration:none;
   white-space:nowrap;
-  background:var(--green);
+  background:var(--orange);
   color:white;
   min-height:41px
 }
@@ -414,7 +415,20 @@ small {
   color:var(--lime);
   margin-bottom:8px
 }
+.hero-art {
+  overflow: hidden;
+  padding: 0;
+  border-radius: 16px;
+}
 
+.hero-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.08);
+  display: block;
+  
+}
 .stats {
   display:grid;
   grid-template-columns:repeat(5,1fr);
@@ -1154,6 +1168,7 @@ td .muted {
   box-shadow:0 6px 12px #0001
 }
 
+
 .services {
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -1175,13 +1190,21 @@ td .muted {
   text-decoration:none
 }
 
-.service .service-symbol {
-  font-family:Georgia,serif;
-  color:var(--green);
-  font-size:36px;
+.service-image {
+  width:100%;
+  height:130px;
+  overflow:hidden;
+  border-radius:8px;
   margin-bottom:16px;
-  height:47px
 }
+
+.service-image img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
 
 .service h3 {
   font-size:13px

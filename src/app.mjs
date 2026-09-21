@@ -20,7 +20,13 @@ export function createApp(options = {}) {
     ['/', ['index.html', 'text/html; charset=utf-8']],
     ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
     ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
-    ['/favicon.svg', ['favicon.svg', 'image/svg+xml']]
+    ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
+    ['/Logo.png', ['Logo.png', 'image/png']],
+    ['/Homepage-Graphic.png', ['Homepage-Graphic.png', 'image/png']],
+    ['/Packaging.png', ['Packaging.png', 'image/png']],
+    ['/Branding.png', ['Branding.png', 'image/png']],
+    ['/digital.png', ['digital.png', 'image/png']],
+    ['/prints.png', ['prints.png', 'image/png']],
   ]);
   const actor = session => session.user?.name || 'Customer';
   const staff = session => requireThat(session?.user, 403, 'Staff sign-in is required.');
