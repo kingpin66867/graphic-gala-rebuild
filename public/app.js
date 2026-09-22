@@ -1622,7 +1622,7 @@ function controls(p) {
       class="btn secondary" 
       data-action="revision"
       >
-      $icon('revision')} Request revision
+      ${icon('revision')} Request revision
       </button>
       `:`
       <p class="sub">
